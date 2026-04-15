@@ -1,26 +1,235 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* === FONTS === */
+  --font-headline: var(--font-plus-jakarta-sans);
+  --font-body: var(--font-dm-sans);
+  --font-accent: var(--font-caveat);
+
+  /* === COLORS: Stitch Design System (Masala Brutalism) === */
+  --color-background: #fff9ec;
+  --color-surface: #fff9ec;
+  --color-surface-bright: #fff9ec;
+  --color-surface-dim: #e0dac9;
+  --color-surface-container: #f4eddd;
+  --color-surface-container-low: #faf3e2;
+  --color-surface-container-high: #eee8d7;
+  --color-surface-container-highest: #e9e2d2;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-variant: #e9e2d2;
+  --color-surface-tint: #845400;
+
+  --color-primary: #845400;
+  --color-primary-container: #ffb347;
+  --color-primary-container-dim: #e6981f;
+  --color-primary-fixed: #ffddb6;
+  --color-primary-fixed-dim: #ffb95a;
+
+  --color-secondary: #b71032;
+  --color-secondary-container: #da3148;
+  --color-secondary-fixed: #ffdad9;
+  --color-secondary-fixed-dim: #ffb3b4;
+
+  --color-tertiary: #43682b;
+  --color-tertiary-container: #a4ce85;
+  --color-tertiary-fixed: #c4efa3;
+  --color-tertiary-fixed-dim: #a8d38a;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #704700;
+  --color-on-primary-fixed: #2a1800;
+  --color-on-primary-fixed-variant: #643f00;
+
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #fffbff;
+  --color-on-secondary-fixed: #40000a;
+  --color-on-secondary-fixed-variant: #920023;
+
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #35581d;
+  --color-on-tertiary-fixed: #0a2100;
+  --color-on-tertiary-fixed-variant: #2c4f15;
+
+  --color-on-surface: #1e1c12;
+  --color-on-surface-variant: #524535;
+  --color-on-background: #1e1c12;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  --color-outline: #847463;
+  --color-outline-variant: #d6c3b0;
+
+  --color-inverse-surface: #333025;
+  --color-inverse-on-surface: #f7f0df;
+  --color-inverse-primary: #ffb95a;
+
+  /* === BORDER RADIUS: Brutalist (sharp) === */
+  --radius-sm: 0.125rem;
+  --radius-DEFAULT: 0.125rem;
+  --radius-md: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
+  --radius-full: 0.75rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* === BRUTALIST UTILITIES === */
+.brutalist-shadow {
+  box-shadow: 4px 4px 0px 0px rgba(51, 51, 51, 1);
+}
+
+.brutalist-shadow-sm {
+  box-shadow: 2px 2px 0px 0px rgba(51, 51, 51, 1);
+}
+
+.brutalist-shadow-hover:hover {
+  box-shadow: 0px 0px 0px 0px rgba(51, 51, 51, 1);
+  transform: translate(4px, 4px);
+}
+
+.polaroid-frame {
+  padding: 10px 10px 40px 10px;
+}
+
+/* === GRAIN OVERLAY (atmosphere) === */
+.grain-overlay::before {
+  content: "";
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  right: -50%;
+  bottom: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 100;
+}
+
+/* === DECORATIVE TAPE STRIPS === */
+.tape-strip {
+  position: relative;
+}
+.tape-strip::after {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 60px;
+  height: 16px;
+  background: rgba(255, 179, 71, 0.6);
+  border: 1px solid rgba(51, 51, 51, 0.2);
+}
+
+/* === MARQUEE ANIMATION === */
+.marquee {
+  white-space: nowrap;
+  overflow: hidden;
+  display: inline-flex;
+  animation: marquee-scroll 20s linear infinite;
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
   }
 }
 
+/* === STAGGER ENTRANCE ANIMATIONS === */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out both;
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.5s ease-out both;
+}
+
+.animate-wiggle {
+  animation: wiggle 3s ease-in-out infinite;
+}
+
+/* === DIAGONAL STRIPE PATTERN === */
+.diagonal-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 8px,
+    rgba(132, 84, 0, 0.04) 8px,
+    rgba(132, 84, 0, 0.04) 16px
+  );
+}
+
+/* === MATERIAL SYMBOLS === */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* === BASE STYLES === */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-background);
+  color: var(--color-on-surface);
+}
+
+::selection {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+/* === SCROLLBAR (brutalist) === */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-container);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface-container);
+}
+
+/* === MOBILE TOUCH IMPROVEMENTS === */
+@media (max-width: 768px) {
+  .brutalist-shadow {
+    box-shadow: 3px 3px 0px 0px rgba(51, 51, 51, 1);
+  }
+
+  .polaroid-frame {
+    padding: 6px 6px 28px 6px;
+  }
 }
