@@ -1,14 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { BrutalistCard } from "@/components/ui/BrutalistCard";
+import { SafeImage } from "@/components/ui/SafeImage";
+import type { ImageKey } from "@/lib/gemini-images";
 
-const STEP_IMAGES = [
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBobBkhxTy7hfGG7Z3RQSmmhKSemxntkwq8AaNprRJqGZWGAfKqwJMAxVLRW24aoremSHKe5B_gIUC31UrjUxZobqv8yjaXIp6Et1XY-5aQ1GhynncWQ8B_Iyd1FGXYIX9dFIAPym-BNl13Z-lTqvDkmCaXb0ma1OwjDUx1WSdSSFeZ-TbBeBdUNGrFpO2UcuwRdeMmDwe6ca3T9aUZyizCzR1rje4TuZteZRRsDq59M2zeCNdydZO7zZWZNqUwqkEqcQAF_cPUqsE",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAXGJQsoomu0Kp1jV6VACHEsy5v72GlKJDv1X48RphYWzJ4Vc08ew6r0ELWNC1eVOz-Qs6kTLYExrd9WiVDBKZX9KerXxHjsYU789gNiZc6Spp-ICw5qC7qh-56j6zlIXaN1DFjlKXm6_5GMjcWy4QJ1CXhZfEQZEAN5tiliHtzRvS_vdRl80MNNyhKgbTxYqQnFnDyPnaGdhE9s6Ecq-QLUXfDgViCuMnzfkgcTe--5xyOv3EnWvSMx2pxH0rdI0RCleB2mXPrhOY",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuD7NaQ54CRkRmmaIIV2W2BmRUKA95yUCnxqPKjMD4PyPBNeXMnNMzo6jLGa7BEKT3yn4obFygnCKo4OqoTssX5StbecdZSv2d-Z5EntH03c3uZ3_g9MRoEtpH3gypiv44COta6fWEAz18zuXw3OHVyWwSL-gnGb6msS229Ab3PZqCQgm73EDCdWIuQZmXRFJKghXBbM8pFbsJ04uoHg3DyS-Q5JJENeGphkD-Fov1MGiDYDxPOD9JchJnHxzzSQ0A2c1aqsZiqJC6M",
-];
+const STEP_KEYS: ImageKey[] = ["step-1", "step-2", "step-3"];
 
 const steps = [
   {
@@ -20,7 +17,7 @@ const steps = [
   {
     num: 2,
     title: "Add water & heat",
-    desc: "Throw it in a rice cooker, kettle, or whatever electric heating device you smuggled in.",
+    desc: "Throw it in a rice cooker, kettle, or whatever electric device you smuggled into your Chennai hostel.",
     icon: "local_fire_department",
   },
   {
@@ -70,8 +67,8 @@ export function HowItWorks() {
             <motion.div key={step.num} variants={cardVariants}>
               <BrutalistCard hover className="h-full overflow-hidden">
                 <div className="relative">
-                  <Image
-                    src={STEP_IMAGES[i]}
+                  <SafeImage
+                    imageKey={STEP_KEYS[i]}
                     alt={step.title}
                     width={400}
                     height={300}

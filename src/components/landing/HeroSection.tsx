@@ -1,12 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/Badge";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
-
-const HERO_IMAGE =
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAHRY_VepRJ521NBEaYQSpOa2yJ50yDRkUER3z4dxLQhDQDQjXL6R-9e4kv5MIVDO25chpB5ohD22S9AkRt0uTX3yHkPvmHzBpaalobORht6aDq6bOG_u7vhQCpypmXIDyWvVDn0tdik4pOnsfYAJSIlP3s-EBc2GHBrJHHM0187X2Krb2c2mWKgiXhPxpHvsPuFX6LY_oTytyO6EeODt0WBF-PX_tDVyALpcFeZQj9bdDTzclPYXJ1y9TwQ8fxUAE-1gC-WzEXqw8";
+import { SafeImage } from "@/components/ui/SafeImage";
 
 export function HeroSection() {
   return (
@@ -29,7 +26,7 @@ export function HeroSection() {
         transition={{ duration: 0.6 }}
       >
         <div className="relative inline-block mb-3 sm:mb-4">
-          <Badge variant="secondary">Because hostel mess food is a crime.</Badge>
+          <Badge variant="secondary">Launching first in Chennai colleges</Badge>
         </div>
 
         <h1 className="font-[family-name:var(--font-plus-jakarta-sans)] text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[0.95] tracking-tighter text-on-surface mb-4 sm:mb-6">
@@ -44,8 +41,9 @@ export function HeroSection() {
         </h1>
 
         <p className="text-base sm:text-lg text-on-surface-variant max-w-md mb-6 sm:mb-8 leading-relaxed">
-          The &#8377;89 single-serve biryani kit that takes 15 minutes in a rice
-          cooker. No chopping, no shopping, no crying.
+          Chennai&apos;s first &#8377;89 single-serve biryani kit. 15 minutes in a
+          rice cooker. Cheaper than Cookd, faster than Swiggy. No chopping, no
+          shopping, no crying.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center mb-4 sm:mb-6">
@@ -56,10 +54,10 @@ export function HeroSection() {
           </a>
           <div className="flex flex-col">
             <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-secondary">
-              Drops next week.
+              Launching in Chennai colleges first.
             </span>
             <span className="text-xs sm:text-sm font-bold text-on-surface-variant">
-              4,204 students already waiting.
+              4,204 students across Anna Univ, SRM &amp; VIT waiting.
             </span>
           </div>
         </div>
@@ -74,8 +72,8 @@ export function HeroSection() {
       >
         <div className="relative transform rotate-2 md:rotate-3 hover:rotate-0 transition-transform duration-500 z-20">
           <div className="bg-surface-container-lowest border-4 border-[#333333] polaroid-frame brutalist-shadow tape-strip">
-            <Image
-              src={HERO_IMAGE}
+            <SafeImage
+              imageKey="hero"
               alt="Lazy Biryani Kit - steaming biryani"
               width={600}
               height={450}

@@ -28,8 +28,8 @@ export function CTASection() {
         </h2>
 
         <p className="text-on-surface-variant text-base sm:text-lg max-w-xl mx-auto mb-8 sm:mb-10 leading-relaxed">
-          We&apos;re launching in limited batches. Get on the VIP list to snag
-          your kits at &#8377;89 before prices jump.
+          Dropping first in Chennai colleges — Anna University, SRM, Sathyabama,
+          VIT Chennai &amp; Loyola. Limited first batch at &#8377;89 before prices jump.
         </p>
 
         {/* Email signup */}
@@ -72,7 +72,7 @@ export function CTASection() {
             ))}
           </div>
           <span className="text-xs sm:text-sm font-bold text-on-surface-variant">
-            <strong className="text-on-surface">127 students</strong> joined today
+            <strong className="text-on-surface">127 Chennai students</strong> joined today
           </span>
         </motion.div>
       </motion.div>

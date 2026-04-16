@@ -7,6 +7,7 @@ import { useCart } from "@/lib/CartContext";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
+import { AddressForm, type DeliveryAddress } from "@/components/checkout/AddressForm";
 import { useState } from "react";
 
 function OrderSuccess({ onClose }: { onClose: () => void }) {
@@ -56,10 +57,21 @@ export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, totalItems, totalPrice } =
     useCart();
   const [ordered, setOrdered] = useState(false);
+  const [showAddress, setShowAddress] = useState(false);
+  const [savedAddress, setSavedAddress] = useState<DeliveryAddress | null>(null);
 
   const handlePlaceOrder = () => {
+    if (!savedAddress) {
+      setShowAddress(true);
+      return;
+    }
     setOrdered(true);
     clearCart();
+  };
+
+  const handleAddressSubmit = (address: DeliveryAddress) => {
+    setSavedAddress(address);
+    setShowAddress(false);
   };
 
   const isEmpty = items.length === 0 && !ordered;
@@ -180,61 +192,103 @@ export default function CartPage() {
               </div>
 
               {/* Order summary */}
-              <div className="lg:w-80 shrink-0">
+              <div className="lg:w-96 shrink-0">
                 <div className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow p-5 sticky top-24">
-                  <h2 className="font-[family-name:var(--font-plus-jakarta-sans)] text-lg font-black text-on-surface mb-4 uppercase tracking-wider">
-                    Order Summary
-                  </h2>
+                  {showAddress ? (
+                    <AddressForm
+                      onSubmit={handleAddressSubmit}
+                      onBack={() => setShowAddress(false)}
+                    />
+                  ) : (
+                    <>
+                      <h2 className="font-[family-name:var(--font-plus-jakarta-sans)] text-lg font-black text-on-surface mb-4 uppercase tracking-wider">
+                        Order Summary
+                      </h2>
 
-                  <div className="space-y-2 mb-4">
-                    {items.map((item) => (
-                      <div
-                        key={item.product.id}
-                        className="flex justify-between text-sm"
-                      >
-                        <span className="text-on-surface-variant">
-                          {item.product.name} x{item.quantity}
-                        </span>
-                        <span className="font-bold text-on-surface">
-                          &#8377;{item.product.price * item.quantity}
-                        </span>
+                      <div className="space-y-2 mb-4">
+                        {items.map((item) => (
+                          <div
+                            key={item.product.id}
+                            className="flex justify-between text-sm"
+                          >
+                            <span className="text-on-surface-variant">
+                              {item.product.name} x{item.quantity}
+                            </span>
+                            <span className="font-bold text-on-surface">
+                              &#8377;{item.product.price * item.quantity}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="border-t-2 border-[#333333] pt-3 mb-2">
-                    <div className="flex justify-between text-sm text-on-surface-variant">
-                      <span>Delivery</span>
-                      <span className="font-bold text-tertiary">FREE</span>
-                    </div>
-                  </div>
+                      <div className="border-t-2 border-[#333333] pt-3 mb-2">
+                        <div className="flex justify-between text-sm text-on-surface-variant">
+                          <span>Delivery</span>
+                          <span className="font-bold text-tertiary">FREE</span>
+                        </div>
+                      </div>
 
-                  <div className="border-t-4 border-[#333333] pt-3 mb-6">
-                    <div className="flex justify-between">
-                      <span className="font-black text-on-surface text-lg">
-                        Total
-                      </span>
-                      <span className="font-black text-primary text-2xl">
-                        &#8377;{totalPrice}
-                      </span>
-                    </div>
-                  </div>
+                      <div className="border-t-4 border-[#333333] pt-3 mb-4">
+                        <div className="flex justify-between">
+                          <span className="font-black text-on-surface text-lg">
+                            Total
+                          </span>
+                          <span className="font-black text-primary text-2xl">
+                            &#8377;{totalPrice}
+                          </span>
+                        </div>
+                      </div>
 
-                  <BrutalistButton
-                    variant="danger"
-                    size="lg"
-                    className="w-full text-base sm:text-lg"
-                    onClick={handlePlaceOrder}
-                  >
-                    Place Order (COD)
-                  </BrutalistButton>
+                      {/* Saved address display */}
+                      {savedAddress && (
+                        <div className="mb-4 bg-tertiary-container/20 border-2 border-[#333333] p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-black uppercase tracking-widest text-tertiary flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">location_on</span>
+                              {savedAddress.label}
+                            </span>
+                            <button
+                              onClick={() => setShowAddress(true)}
+                              className="text-xs font-bold text-primary hover:underline"
+                            >
+                              Change
+                            </button>
+                          </div>
+                          <p className="text-sm text-on-surface font-bold">{savedAddress.fullName}</p>
+                          <p className="text-xs text-on-surface-variant">
+                            {savedAddress.addressLine1}
+                            {savedAddress.addressLine2 ? `, ${savedAddress.addressLine2}` : ""}
+                          </p>
+                          <p className="text-xs text-on-surface-variant">
+                            {savedAddress.city} - {savedAddress.pincode}
+                          </p>
+                          <p className="text-xs text-on-surface-variant">{savedAddress.phone}</p>
+                          {savedAddress.lat && (
+                            <p className="text-xs text-tertiary mt-1 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-xs">my_location</span>
+                              GPS linked
+                            </p>
+                          )}
+                        </div>
+                      )}
 
-                  <p className="text-xs text-on-surface-variant text-center mt-3 flex items-center justify-center gap-1">
-                    <span className="material-symbols-outlined text-sm text-tertiary">
-                      verified_user
-                    </span>
-                    Cash on Delivery only
-                  </p>
+                      <BrutalistButton
+                        variant={savedAddress ? "danger" : "primary"}
+                        size="lg"
+                        className="w-full text-base sm:text-lg"
+                        onClick={handlePlaceOrder}
+                      >
+                        {savedAddress ? "Place Order (COD)" : "Add Delivery Address"}
+                      </BrutalistButton>
+
+                      <p className="text-xs text-on-surface-variant text-center mt-3 flex items-center justify-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-tertiary">
+                          verified_user
+                        </span>
+                        Cash on Delivery only
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

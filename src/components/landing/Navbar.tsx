@@ -59,12 +59,20 @@ export function Navbar() {
           </Link>
 
           {user?.role === "admin" && (
-            <Link
-              href="/admin"
-              className="text-on-surface font-bold text-sm uppercase tracking-widest hover:text-primary transition-colors"
-            >
-              Admin
-            </Link>
+            <>
+              <Link
+                href="/admin"
+                className="text-on-surface font-bold text-sm uppercase tracking-widest hover:text-primary transition-colors"
+              >
+                Admin
+              </Link>
+              <Link
+                href="/admin/products"
+                className="text-on-surface font-bold text-sm uppercase tracking-widest hover:text-primary transition-colors"
+              >
+                Products
+              </Link>
+            </>
           )}
 
           {/* Cart icon */}
@@ -172,13 +180,22 @@ export function Navbar() {
               </Link>
 
               {user?.role === "admin" && (
-                <Link
-                  href="/admin"
-                  onClick={() => setMenuOpen(false)}
-                  className="text-on-surface font-bold text-sm uppercase tracking-widest py-3 px-4 hover:bg-surface-container-low transition-colors"
-                >
-                  Admin Dashboard
-                </Link>
+                <>
+                  <Link
+                    href="/admin"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-on-surface font-bold text-sm uppercase tracking-widest py-3 px-4 hover:bg-surface-container-low transition-colors"
+                  >
+                    Admin Dashboard
+                  </Link>
+                  <Link
+                    href="/admin/products"
+                    onClick={() => setMenuOpen(false)}
+                    className="text-on-surface font-bold text-sm uppercase tracking-widest py-3 px-4 hover:bg-surface-container-low transition-colors"
+                  >
+                    Manage Products
+                  </Link>
+                </>
               )}
 
               <div className="mt-2 pt-2 border-t-2 border-outline-variant">

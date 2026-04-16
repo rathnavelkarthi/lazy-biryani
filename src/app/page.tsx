@@ -8,11 +8,13 @@ import { CTASection } from "@/components/landing/CTASection";
 import { Footer } from "@/components/landing/Footer";
 
 const marqueeItems = [
-  { text: "Bro, this actually tastes good", icon: "verified" },
-  { text: "Saved me at 2 AM", icon: "nightlight" },
-  { text: "Better than Swiggy", icon: "speed" },
-  { text: "Mess food is officially dead", icon: "skull" },
-  { text: "Hostel life upgraded", icon: "upgrade" },
+  { text: "Anna University hostel approved", icon: "verified" },
+  { text: "SRM students love it", icon: "favorite" },
+  { text: "Cheaper than Cookd & Swiggy", icon: "speed" },
+  { text: "Chennai's tastiest biryani kit", icon: "local_fire_department" },
+  { text: "Sathyabama canteen who?", icon: "skull" },
+  { text: "VIT Chennai fav", icon: "upgrade" },
+  { text: "Loyola boys certified", icon: "workspace_premium" },
 ];
 
 export default function Home() {

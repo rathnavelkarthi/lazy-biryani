@@ -4,8 +4,10 @@ import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { mockOrders } from "@/lib/orders";
+import { useProducts } from "@/lib/ProductContext";
 import { Navbar } from "@/components/landing/Navbar";
 import { Badge } from "@/components/ui/Badge";
+import Link from "next/link";
 
 const statusVariant: Record<string, "pending" | "primary" | "tertiary" | "success"> = {
   pending: "pending",
@@ -41,6 +43,7 @@ export default function AdminPage() {
 
   if (!user || user.role !== "admin") return null;
 
+  const { products } = useProducts();
   const totalRevenue = mockOrders.reduce((sum, o) => sum + o.total, 0);
   const activeOrders = mockOrders.filter((o) => o.status !== "delivered").length;
 
@@ -68,7 +71,7 @@ export default function AdminPage() {
               { label: "Total Orders", value: mockOrders.length, icon: "receipt_long" },
               { label: "Active Orders", value: activeOrders, icon: "local_shipping" },
               { label: "Revenue", value: `\u20B9${totalRevenue}`, icon: "payments" },
-              { label: "Products", value: 4, icon: "inventory_2" },
+              { label: "Products", value: products.length, icon: "inventory_2" },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -85,6 +88,20 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Quick actions */}
+          <div className="mb-8">
+            <Link href="/admin/products">
+              <div className="inline-flex items-center gap-3 bg-primary-container/30 border-4 border-[#333333] brutalist-shadow px-6 py-4 hover:bg-primary-container/50 transition-colors cursor-pointer">
+                <span className="material-symbols-outlined text-primary text-2xl">inventory_2</span>
+                <div>
+                  <div className="font-black text-on-surface text-sm">Manage Products</div>
+                  <div className="text-xs text-on-surface-variant">Add, edit, delete products in the shop</div>
+                </div>
+                <span className="material-symbols-outlined text-on-surface-variant text-lg ml-2">arrow_forward</span>
+              </div>
+            </Link>
           </div>
 
           {/* Orders table - desktop */}

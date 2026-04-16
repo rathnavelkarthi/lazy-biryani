@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { products } from "@/lib/products";
+import { useProducts } from "@/lib/ProductContext";
 import { useCart } from "@/lib/CartContext";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
@@ -54,6 +54,7 @@ const cardVariants = {
 };
 
 export default function MenuPage() {
+  const { products } = useProducts();
   const { addItem } = useCart();
   const [toast, setToast] = useState(false);
 
@@ -85,7 +86,7 @@ export default function MenuPage() {
             initial="hidden"
             animate="visible"
           >
-            {products.map((product) => (
+            {products.filter((p) => p.available).map((product) => (
               <motion.div key={product.id} variants={cardVariants}>
                 <div className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow h-full flex flex-col overflow-hidden group">
                   {/* Image */}

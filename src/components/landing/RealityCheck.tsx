@@ -4,16 +4,25 @@ import { motion } from "framer-motion";
 
 const rows = [
   {
-    option: "Food Apps",
+    option: "Swiggy/Zomato",
     cost: "\u20B9250+",
     costEmoji: "\uD83D\uDCB8",
     time: "45 mins",
-    experience: "Cold & Depressing",
+    experience: "Cold by delivery",
     experienceEmoji: "\uD83D\uDC4E",
     highlight: false,
   },
   {
-    option: "Hostel Mess",
+    option: "Cookd Kit (3-serve)",
+    cost: "\u20B9189-299",
+    costEmoji: "\uD83D\uDCB8",
+    time: "30+ mins",
+    experience: "Need gas stove",
+    experienceEmoji: "\uD83E\uDD2E",
+    highlight: false,
+  },
+  {
+    option: "College Mess",
     cost: "\u20B90 pain",
     costEmoji: "",
     time: "Infinite line",
@@ -26,7 +35,7 @@ const rows = [
     cost: "\u20B989",
     costEmoji: "\uD83E\uDD11",
     time: "15 mins",
-    experience: "Fresh & Authentic",
+    experience: "Fresh Dum Biryani",
     experienceEmoji: "\uD83D\uDC51",
     highlight: true,
   },

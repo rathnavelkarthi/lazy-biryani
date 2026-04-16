@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, DM_Sans, Caveat } from "next/font/google";
 import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
+import { ProductProvider } from "@/lib/ProductContext";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -46,9 +47,11 @@ export default function RootLayout({
       </head>
       <body className="font-[family-name:var(--font-dm-sans)] overflow-x-hidden grain-overlay">
         <AuthProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
+          <ProductProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </ProductProvider>
         </AuthProvider>
       </body>
     </html>

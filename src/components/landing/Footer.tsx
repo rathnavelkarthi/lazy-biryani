@@ -9,7 +9,7 @@ export function Footer() {
               Lazy Biryani
             </div>
             <p className="text-white/50 text-sm max-w-xs">
-              The &#8377;89 biryani kit that turned hostel students into chefs.
+              Chennai&apos;s &#8377;89 biryani kit. Loved by students at Anna Univ, SRM, Sathyabama &amp; more.
             </p>
           </div>
 
@@ -35,7 +35,7 @@ export function Footer() {
         {/* Bottom row */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-white/40 text-xs sm:text-sm uppercase tracking-widest text-center sm:text-left">
-            &copy; 2026 Lazy Biryani. Spicing up hostel life.
+            &copy; 2026 Lazy Biryani. Spicing up Chennai hostel life.
           </div>
 
           <div className="flex gap-3">

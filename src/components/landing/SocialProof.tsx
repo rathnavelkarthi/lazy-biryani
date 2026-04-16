@@ -1,31 +1,28 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
+import { SafeImage } from "@/components/ui/SafeImage";
+import type { ImageKey } from "@/lib/gemini-images";
 
-const TESTIMONIAL_IMAGES = [
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuAX8BKWb5lJPLk3iESFQDh-YADIEoGKthKwqmrpCoKGHsAXOJVC1eICXCTkzvaKx2zGbMngeu4gVjuGBxaPXZuAErxuySVhTrdQPx91jxh45xUHHoZsA61O3o53aOETmO0kWfAg6fyL79IQQDmJHgzhFhMx8jrXQP5IFT4qX_0Hyc4p6tJCFjj5f2oiUA4bb0LRDTrjG7VEQrAiobN2opx-wpWba7rKQwJ_vaC7EbwLdYKZ66NaqigdToOmhu_GG29lP0E3MeP1Vhk",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuDc7WlXOloYPkL3PYPBicH2fti79TrQZmA9NCFJM-qbqmSx1xhLXKgQ1jLvn81TxwNm0p1xqwlIsYHMoCWN9hbU6NHi1tJo4WVrkcD7mTQIy_Fc7KECxs_R8CSLk9eJ7Tzpsef7pzR7JxqQesyUp2TES0vNbCWKTRUY7847gdw0lhwWjNDCQPkUa1XsxVM97EYS8zZ-Y_LS2Gl69UP6B1dHPviHOHpS0yI7Zl9dac-v4Z2orguWH8ue-_2A8DpXWr5j797-y111JiE",
-  "https://lh3.googleusercontent.com/aida-public/AB6AXuBXnksxnJCPuF1qPuoXenkWbpMFhFO8uVN5ZtkuaXA1U0OTWTHRNEMVma9Le-sujaIjX0g6cLncR2xQiKUNgykDIAdAsuvrcFW52EGyztxo9AV80sxN8c5YPkUgLshzrWqEpQ7PxZ2RyZ85o3pugRPr36_7Q9mq6i6QZ__C8FQ7R7sb3UMXuKJWGH4XcjhdWPWcflRVsmgqH3M9CsJNwUt4x8wFQyMR2RTuWnBLNEqThozYqJzUCVvtJmL3aDF8INPA-Bp6kfKNXvQ",
-];
+const TESTIMONIAL_KEYS: ImageKey[] = ["testimonial-1", "testimonial-2", "testimonial-3"];
 
 const testimonials = [
   {
-    handle: "@rahul_bits",
-    likes: "1.2k",
-    text: "Mess food is officially cancelled. Lazy Biryani for the win!",
+    handle: "@priya_annauniv",
+    likes: "1.8k",
+    text: "Better than any biryani spot on Mount Road. Made it in my hostel room at Anna University. Life = changed.",
     rotation: -2,
   },
   {
-    handle: "@sneha_vit",
-    likes: "842",
-    text: "Stocking up before the exam week. Only survival kit needed.",
+    handle: "@karthik_srm",
+    likes: "2.1k",
+    text: "SRM mess could never. ₹89 for real dum biryani? I ordered 10 kits for my entire floor.",
     rotation: 3,
   },
   {
-    handle: "@foodie_backbench",
-    likes: "2.5k",
-    text: "Can you believe this came out of a rice cooker?",
+    handle: "@divya_sathyabama",
+    likes: "3.4k",
+    text: "Exam week saviour! Tastes exactly like the biryani from Thalappakatti but I made it in 15 mins. Chennai students, trust me on this.",
     rotation: -1,
   },
 ];
@@ -53,10 +50,10 @@ export function SocialProof() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 sm:mb-16 gap-2 sm:gap-4">
           <h2 className="font-[family-name:var(--font-plus-jakarta-sans)] text-3xl sm:text-4xl md:text-6xl font-black text-on-surface tracking-tighter">
-            Approved by Legends
+            Chennai Students Love It
           </h2>
           <span className="font-[family-name:var(--font-caveat)] text-lg sm:text-xl text-primary">
-            Follow the hype @LazyBiryani
+            Real reviews from real hostel rooms @LazyBiryani
           </span>
         </div>
 
@@ -76,8 +73,8 @@ export function SocialProof() {
               transition={{ duration: 0.3 }}
             >
               <div className="bg-surface-container-lowest border-4 border-[#333333] polaroid-frame brutalist-shadow transition-all duration-300">
-                <Image
-                  src={TESTIMONIAL_IMAGES[i]}
+                <SafeImage
+                  imageKey={TESTIMONIAL_KEYS[i]}
                   alt={`${t.handle} biryani photo`}
                   width={400}
                   height={300}
