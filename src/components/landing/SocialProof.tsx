@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { SafeImage } from "@/components/ui/SafeImage";
 import type { ImageKey } from "@/lib/gemini-images";
@@ -45,6 +46,12 @@ const cardVariants = {
 };
 
 export function SocialProof() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 640);
+  }, []);
+
   return (
     <section id="proof" className="py-16 sm:py-24 px-4 sm:px-6 bg-surface-container-low overflow-hidden">
       <div className="max-w-7xl mx-auto">
@@ -67,7 +74,7 @@ export function SocialProof() {
           {testimonials.map((t, i) => (
             <motion.div
               key={t.handle}
-              custom={typeof window !== "undefined" && window.innerWidth < 640 ? 0 : t.rotation}
+              custom={isMobile ? 0 : t.rotation}
               variants={cardVariants}
               whileHover={{ rotate: 0, scale: 1.02 }}
               transition={{ duration: 0.3 }}
