@@ -26,10 +26,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Check role for redirect
-    const res = await fetch("/api/auth/me");
-    const data = await res.json();
-    if (data.user?.role === "admin") {
+    if (result.user?.role === "admin") {
       router.push("/admin");
     } else {
       router.push("/menu");

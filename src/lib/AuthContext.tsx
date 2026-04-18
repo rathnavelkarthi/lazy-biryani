@@ -5,10 +5,9 @@ import {
   useContext,
   useState,
   useEffect,
-  useCallback,
   type ReactNode,
 } from "react";
-import type { UserRole } from "./users";
+import { type UserRole, findUser } from "./users";
 
 interface AuthUser {
   id: string;
@@ -20,9 +19,11 @@ interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ error?: string }>;
+  login: (email: string, password: string) => Promise<{ error?: string; user?: AuthUser }>;
   logout: () => Promise<void>;
 }
+
+const AUTH_KEY = "lazy-biryani-auth";
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -35,46 +36,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = useCallback(async () => {
+  useEffect(() => {
     try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
-        setUser(null);
+      const stored = localStorage.getItem(AUTH_KEY);
+      if (stored) {
+        setUser(JSON.parse(stored));
       }
     } catch {
-      setUser(null);
+      // ignore corrupt storage
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
   const login = async (email: string, password: string) => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      return { error: data.error || "Login failed" };
+    const found = findUser(email, password);
+    if (!found) {
+      return { error: "Invalid email or password" };
     }
-
-    setUser(data.user);
-    return {};
+    setUser(found as AuthUser);
+    localStorage.setItem(AUTH_KEY, JSON.stringify(found));
+    return { user: found as AuthUser };
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
+    localStorage.removeItem(AUTH_KEY);
   };
 
   return (
