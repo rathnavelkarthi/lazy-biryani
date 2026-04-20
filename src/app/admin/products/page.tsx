@@ -3,12 +3,13 @@
 import { useAuth } from "@/lib/AuthContext";
 import { useProducts } from "@/lib/ProductContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Navbar } from "@/components/landing/Navbar";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
 import { Badge } from "@/components/ui/Badge";
+import { supabase } from "@/lib/supabase";
 import type { Product } from "@/lib/products";
 
 function ProductModal({
@@ -35,6 +36,9 @@ function ProductModal({
       available: true,
     }
   );
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (field: keyof Product, value: string | number | boolean) => {
     setForm((prev) => ({
@@ -44,6 +48,44 @@ function ProductModal({
         ? { slug: String(value).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") }
         : {}),
     }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image must be under 5MB");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError("");
+
+    const ext = file.name.split(".").pop();
+    const fileName = `${form.slug || form.id}-${Date.now()}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(fileName, file, { upsert: true });
+
+    if (error) {
+      setUploadError(error.message);
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(fileName);
+
+    setForm((prev) => ({ ...prev, image: urlData.publicUrl }));
+    setUploading(false);
   };
 
   return (
@@ -70,7 +112,7 @@ function ProductModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">
-                Price (₹)
+                Price (Rs)
               </label>
               <input
                 type="number"
@@ -81,7 +123,7 @@ function ProductModal({
             </div>
             <div>
               <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">
-                Original Price (₹)
+                Original Price (Rs)
               </label>
               <input
                 type="number"
@@ -142,16 +184,63 @@ function ProductModal({
             </div>
           </div>
 
+          {/* Image upload */}
           <div>
             <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant block mb-1">
-              Image URL
+              Product Image
             </label>
+
+            {/* Image preview */}
+            {form.image && (
+              <div className="mb-2 border-2 border-[#333333] overflow-hidden">
+                <img
+                  src={form.image}
+                  alt="Preview"
+                  className="w-full h-32 object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      "data:image/svg+xml," +
+                      encodeURIComponent(
+                        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect fill="#FFF3E0" width="400" height="200"/><text x="200" y="100" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#E65100">No preview</text></svg>'
+                      );
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Upload button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex-1 flex items-center justify-center gap-2 bg-tertiary-container border-2 border-[#333333] px-3 py-2.5 text-xs font-black uppercase tracking-wider hover:brightness-95 transition-all disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-base">
+                  {uploading ? "hourglass_top" : "cloud_upload"}
+                </span>
+                {uploading ? "Uploading..." : "Upload Image"}
+              </button>
+            </div>
+
+            {uploadError && (
+              <p className="text-xs text-secondary font-bold mt-1">{uploadError}</p>
+            )}
+
+            {/* Manual URL fallback */}
             <input
               type="text"
               value={form.image}
               onChange={(e) => update("image", e.target.value)}
-              className="w-full bg-surface-container-lowest border-2 border-[#333333] px-3 py-2 text-sm font-bold focus:outline-none focus:border-primary"
-              placeholder="/images/generated/product-chicken.png"
+              className="w-full bg-surface-container-lowest border-2 border-[#333333] px-3 py-2 text-sm font-bold focus:outline-none focus:border-primary mt-2"
+              placeholder="Or paste image URL"
             />
           </div>
 
@@ -209,18 +298,18 @@ export default function AdminProductsPage() {
     );
   }
 
-  const handleSave = (product: Product) => {
+  const handleSave = async (product: Product) => {
     if (editingProduct) {
-      updateProduct(product.id, product);
+      await updateProduct(product.id, product);
     } else {
-      addProduct(product);
+      await addProduct(product);
     }
     setShowModal(false);
     setEditingProduct(null);
   };
 
-  const handleDelete = (id: string) => {
-    deleteProduct(id);
+  const handleDelete = async (id: string) => {
+    await deleteProduct(id);
     setDeleteConfirm(null);
   };
 
@@ -278,6 +367,7 @@ export default function AdminProductsPage() {
                     width={400}
                     height={300}
                     className="w-full h-40 object-cover"
+                    unoptimized={product.image.includes("supabase")}
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
                         "data:image/svg+xml," +
@@ -301,8 +391,8 @@ export default function AdminProductsPage() {
                     {product.name}
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="font-black text-primary text-lg">₹{product.price}</span>
-                    <span className="text-xs text-on-surface-variant line-through">₹{product.originalPrice}</span>
+                    <span className="font-black text-primary text-lg">Rs{product.price}</span>
+                    <span className="text-xs text-on-surface-variant line-through">Rs{product.originalPrice}</span>
                   </div>
 
                   {/* Actions */}

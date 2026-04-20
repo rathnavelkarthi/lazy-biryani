@@ -4,13 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useCart } from "@/lib/CartContext";
+import { useAuth } from "@/lib/AuthContext";
+import { useOrders } from "@/lib/OrderContext";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
 import { AddressForm, type DeliveryAddress } from "@/components/checkout/AddressForm";
 import { useState } from "react";
 
-function OrderSuccess({ onClose }: { onClose: () => void }) {
+function OrderSuccess({ orderId, onClose }: { orderId: string; onClose: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -33,10 +35,18 @@ function OrderSuccess({ onClose }: { onClose: () => void }) {
         <p className="text-on-surface-variant mb-1">
           Your biryani is being prepared.
         </p>
+        <p className="text-xs text-on-surface-variant mb-1 font-bold">
+          Order ID: {orderId}
+        </p>
         <p className="text-sm text-on-surface-variant mb-6">
           Payment: Cash on Delivery
         </p>
         <div className="flex flex-col gap-3">
+          <Link href="/orders">
+            <BrutalistButton variant="danger" size="md" className="w-full">
+              Track My Orders
+            </BrutalistButton>
+          </Link>
           <Link href="/menu">
             <BrutalistButton variant="primary" size="md" className="w-full">
               Order More
@@ -56,17 +66,56 @@ function OrderSuccess({ onClose }: { onClose: () => void }) {
 export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, totalItems, totalPrice } =
     useCart();
+  const { user } = useAuth();
+  const { placeOrder } = useOrders();
   const [ordered, setOrdered] = useState(false);
+  const [orderId, setOrderId] = useState("");
   const [showAddress, setShowAddress] = useState(false);
   const [savedAddress, setSavedAddress] = useState<DeliveryAddress | null>(null);
+  const [orderError, setOrderError] = useState("");
+  const [placing, setPlacing] = useState(false);
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (!user) {
+      setOrderError("Please log in to place an order");
+      return;
+    }
     if (!savedAddress) {
       setShowAddress(true);
       return;
     }
+
+    setPlacing(true);
+    setOrderError("");
+
+    const orderItems = items.map((item) => ({
+      productId: item.product.id,
+      name: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+    }));
+
+    const addressStr = [
+      savedAddress.fullName,
+      savedAddress.addressLine1,
+      savedAddress.addressLine2,
+      savedAddress.landmark,
+      `${savedAddress.city} - ${savedAddress.pincode}`,
+      savedAddress.phone,
+    ].filter(Boolean).join(", ");
+
+    const result = await placeOrder(orderItems, totalPrice, addressStr);
+
+    if (result.error) {
+      setOrderError(result.error);
+      setPlacing(false);
+      return;
+    }
+
+    setOrderId(result.orderId || "");
     setOrdered(true);
     clearCart();
+    setPlacing(false);
   };
 
   const handleAddressSubmit = (address: DeliveryAddress) => {
@@ -118,7 +167,6 @@ export default function CartPage() {
                     exit={{ opacity: 0, x: 20 }}
                     className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow flex flex-col sm:flex-row overflow-hidden"
                   >
-                    {/* Product image */}
                     <div className="sm:w-32 sm:h-32 h-40 shrink-0">
                       <Image
                         src={item.product.image}
@@ -129,7 +177,6 @@ export default function CartPage() {
                       />
                     </div>
 
-                    {/* Details */}
                     <div className="flex-1 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div>
                         <h3 className="font-[family-name:var(--font-plus-jakarta-sans)] font-black text-on-surface text-base">
@@ -141,14 +188,10 @@ export default function CartPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        {/* Quantity controls */}
                         <div className="flex items-center border-2 border-[#333333]">
                           <button
                             onClick={() =>
-                              updateQuantity(
-                                item.product.id,
-                                item.quantity - 1
-                              )
+                              updateQuantity(item.product.id, item.quantity - 1)
                             }
                             className="w-9 h-9 flex items-center justify-center font-black text-lg hover:bg-surface-container transition-colors"
                           >
@@ -159,10 +202,7 @@ export default function CartPage() {
                           </span>
                           <button
                             onClick={() =>
-                              updateQuantity(
-                                item.product.id,
-                                item.quantity + 1
-                              )
+                              updateQuantity(item.product.id, item.quantity + 1)
                             }
                             className="w-9 h-9 flex items-center justify-center font-black text-lg hover:bg-surface-container transition-colors"
                           >
@@ -170,12 +210,10 @@ export default function CartPage() {
                           </button>
                         </div>
 
-                        {/* Subtotal */}
                         <span className="font-black text-on-surface text-base min-w-[60px] text-right">
                           &#8377;{item.product.price * item.quantity}
                         </span>
 
-                        {/* Remove */}
                         <button
                           onClick={() => removeItem(item.product.id)}
                           className="text-error hover:bg-error-container p-1 transition-colors"
@@ -272,13 +310,38 @@ export default function CartPage() {
                         </div>
                       )}
 
+                      {/* Login prompt */}
+                      {!user && (
+                        <div className="mb-4 bg-primary-container/20 border-2 border-[#333333] p-3">
+                          <p className="text-sm font-bold text-on-surface mb-2">
+                            Please log in to place your order
+                          </p>
+                          <Link href="/login">
+                            <BrutalistButton variant="primary" size="sm" className="w-full">
+                              Log In / Sign Up
+                            </BrutalistButton>
+                          </Link>
+                        </div>
+                      )}
+
+                      {orderError && (
+                        <div className="mb-4 bg-error-container text-on-error-container border-2 border-error px-4 py-2 text-sm font-bold">
+                          {orderError}
+                        </div>
+                      )}
+
                       <BrutalistButton
                         variant={savedAddress ? "danger" : "primary"}
                         size="lg"
                         className="w-full text-base sm:text-lg"
                         onClick={handlePlaceOrder}
+                        disabled={placing || !user}
                       >
-                        {savedAddress ? "Place Order (COD)" : "Add Delivery Address"}
+                        {placing
+                          ? "Placing order..."
+                          : savedAddress
+                            ? "Place Order (COD)"
+                            : "Add Delivery Address"}
                       </BrutalistButton>
 
                       <p className="text-xs text-on-surface-variant text-center mt-3 flex items-center justify-center gap-1">
@@ -296,7 +359,7 @@ export default function CartPage() {
         </div>
 
         {ordered && (
-          <OrderSuccess onClose={() => setOrdered(false)} />
+          <OrderSuccess orderId={orderId} onClose={() => setOrdered(false)} />
         )}
       </main>
       <Footer />

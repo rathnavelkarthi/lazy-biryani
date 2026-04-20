@@ -1,10 +1,10 @@
 "use client";
 
 import { useAuth } from "@/lib/AuthContext";
+import { useProducts } from "@/lib/ProductContext";
+import { useOrders, type OrderStatus } from "@/lib/OrderContext";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { mockOrders } from "@/lib/orders";
-import { useProducts } from "@/lib/ProductContext";
 import { Navbar } from "@/components/landing/Navbar";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
@@ -14,6 +14,7 @@ const statusVariant: Record<string, "pending" | "primary" | "tertiary" | "succes
   preparing: "primary",
   out_for_delivery: "tertiary",
   delivered: "success",
+  cancelled: "error" as "pending",
 };
 
 const statusLabel: Record<string, string> = {
@@ -21,19 +22,36 @@ const statusLabel: Record<string, string> = {
   preparing: "Preparing",
   out_for_delivery: "Out for Delivery",
   delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+const nextStatus: Record<string, OrderStatus | null> = {
+  pending: "preparing",
+  preparing: "out_for_delivery",
+  out_for_delivery: "delivered",
+  delivered: null,
+  cancelled: null,
 };
 
 export default function AdminPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { products } = useProducts();
+  const { orders, loading: ordersLoading, fetchAllOrders, updateOrderStatus } = useOrders();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "admin")) {
+    if (!authLoading && (!user || user.role !== "admin")) {
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
-  if (loading) {
+  useEffect(() => {
+    if (user?.role === "admin") {
+      fetchAllOrders();
+    }
+  }, [user, fetchAllOrders]);
+
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <span className="text-on-surface-variant font-bold">Loading...</span>
@@ -43,9 +61,12 @@ export default function AdminPage() {
 
   if (!user || user.role !== "admin") return null;
 
-  const { products } = useProducts();
-  const totalRevenue = mockOrders.reduce((sum, o) => sum + o.total, 0);
-  const activeOrders = mockOrders.filter((o) => o.status !== "delivered").length;
+  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
+  const activeOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
+
+  const handleStatusChange = async (orderId: string, status: OrderStatus) => {
+    await updateOrderStatus(orderId, status);
+  };
 
   return (
     <>
@@ -68,7 +89,7 @@ export default function AdminPage() {
           {/* Stats cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             {[
-              { label: "Total Orders", value: mockOrders.length, icon: "receipt_long" },
+              { label: "Total Orders", value: orders.length, icon: "receipt_long" },
               { label: "Active Orders", value: activeOrders, icon: "local_shipping" },
               { label: "Revenue", value: `\u20B9${totalRevenue}`, icon: "payments" },
               { label: "Products", value: products.length, icon: "inventory_2" },
@@ -104,91 +125,132 @@ export default function AdminPage() {
             </Link>
           </div>
 
-          {/* Orders table - desktop */}
-          <div className="hidden md:block bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-[#333333] text-white">
-                  {["Order ID", "Customer", "Items", "Total", "Status", "Address"].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left font-black uppercase tracking-widest text-xs"
+          {/* Orders header */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-[family-name:var(--font-plus-jakarta-sans)] text-xl font-black text-on-surface">
+              Orders
+            </h2>
+            <button
+              onClick={fetchAllOrders}
+              className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              <span className="material-symbols-outlined text-sm">refresh</span>
+              Refresh
+            </button>
+          </div>
+
+          {ordersLoading ? (
+            <div className="text-center py-12">
+              <span className="text-on-surface-variant font-bold">Loading orders...</span>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-12 bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow">
+              <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">receipt_long</span>
+              <p className="text-on-surface-variant font-bold">No orders yet</p>
+            </div>
+          ) : (
+            <>
+              {/* Orders table - desktop */}
+              <div className="hidden md:block bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-[#333333] text-white">
+                      {["Order ID", "Customer", "Items", "Total", "Status", "Action"].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            className="px-4 py-3 text-left font-black uppercase tracking-widest text-xs"
+                          >
+                            {h}
+                          </th>
+                        )
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr
+                        key={order.id}
+                        className="border-t-2 border-[#333333] hover:bg-surface-container-low transition-colors"
                       >
-                        {h}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {mockOrders.map((order) => (
-                  <tr
+                        <td className="px-4 py-3 font-black text-sm text-on-surface">
+                          {order.id}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-sm text-on-surface">
+                          {order.userName}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-on-surface-variant max-w-[200px]">
+                          {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
+                        </td>
+                        <td className="px-4 py-3 font-black text-sm text-primary">
+                          &#8377;{order.total}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={statusVariant[order.status]}>
+                            {statusLabel[order.status]}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {nextStatus[order.status] ? (
+                            <button
+                              onClick={() => handleStatusChange(order.id, nextStatus[order.status]!)}
+                              className="bg-tertiary-container text-on-tertiary-container border-2 border-[#333333] px-3 py-1 text-xs font-black uppercase tracking-wider hover:brightness-95 transition-all"
+                            >
+                              {statusLabel[nextStatus[order.status]!]}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">Done</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Orders cards - mobile */}
+              <div className="md:hidden space-y-4">
+                {orders.map((order) => (
+                  <div
                     key={order.id}
-                    className="border-t-2 border-[#333333] hover:bg-surface-container-low transition-colors"
+                    className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow p-4"
                   >
-                    <td className="px-4 py-3 font-black text-sm text-on-surface">
-                      {order.id}
-                    </td>
-                    <td className="px-4 py-3 font-bold text-sm text-on-surface">
-                      {order.userName}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-on-surface-variant">
-                      {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
-                    </td>
-                    <td className="px-4 py-3 font-black text-sm text-primary">
-                      &#8377;{order.total}
-                    </td>
-                    <td className="px-4 py-3">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className="font-black text-on-surface text-sm">
+                          {order.id}
+                        </span>
+                        <p className="font-bold text-on-surface-variant text-sm">
+                          {order.userName}
+                        </p>
+                      </div>
                       <Badge variant={statusVariant[order.status]}>
                         {statusLabel[order.status]}
                       </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-on-surface-variant max-w-[200px] truncate">
-                      {order.address}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
 
-          {/* Orders cards - mobile */}
-          <div className="md:hidden space-y-4">
-            {mockOrders.map((order) => (
-              <div
-                key={order.id}
-                className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow p-4"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <span className="font-black text-on-surface text-sm">
-                      {order.id}
-                    </span>
-                    <p className="font-bold text-on-surface-variant text-sm">
-                      {order.userName}
-                    </p>
+                    <div className="text-sm text-on-surface-variant mb-2">
+                      {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t-2 border-outline-variant">
+                      <span className="font-black text-primary text-lg">
+                        &#8377;{order.total}
+                      </span>
+                      {nextStatus[order.status] && (
+                        <button
+                          onClick={() => handleStatusChange(order.id, nextStatus[order.status]!)}
+                          className="bg-tertiary-container text-on-tertiary-container border-2 border-[#333333] px-3 py-1.5 text-xs font-black uppercase tracking-wider"
+                        >
+                          Mark {statusLabel[nextStatus[order.status]!]}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <Badge variant={statusVariant[order.status]}>
-                    {statusLabel[order.status]}
-                  </Badge>
-                </div>
-
-                <div className="text-sm text-on-surface-variant mb-2">
-                  {order.items.map((i) => `${i.name} x${i.quantity}`).join(", ")}
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t-2 border-outline-variant">
-                  <span className="text-xs text-on-surface-variant truncate max-w-[60%]">
-                    {order.address}
-                  </span>
-                  <span className="font-black text-primary text-lg">
-                    &#8377;{order.total}
-                  </span>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </main>
     </>

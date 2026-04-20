@@ -58,6 +58,15 @@ export function Navbar() {
             Menu
           </Link>
 
+          {user && (
+            <Link
+              href="/orders"
+              className="text-on-surface font-bold text-sm uppercase tracking-widest hover:text-primary transition-colors"
+            >
+              My Orders
+            </Link>
+          )}
+
           {user?.role === "admin" && (
             <>
               <Link
@@ -178,6 +187,16 @@ export function Navbar() {
                   </span>
                 )}
               </Link>
+
+              {user && (
+                <Link
+                  href="/orders"
+                  onClick={() => setMenuOpen(false)}
+                  className="text-on-surface font-bold text-sm uppercase tracking-widest py-3 px-4 hover:bg-surface-container-low transition-colors"
+                >
+                  My Orders
+                </Link>
+              )}
 
               {user?.role === "admin" && (
                 <>

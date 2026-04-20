@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, DM_Sans, Caveat } from "next/font/google";
 import { AuthProvider } from "@/lib/AuthContext";
 import { CartProvider } from "@/lib/CartContext";
 import { ProductProvider } from "@/lib/ProductContext";
+import { OrderProvider } from "@/lib/OrderContext";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -49,7 +50,9 @@ export default function RootLayout({
         <AuthProvider>
           <ProductProvider>
             <CartProvider>
-              {children}
+              <OrderProvider>
+                {children}
+              </OrderProvider>
             </CartProvider>
           </ProductProvider>
         </AuthProvider>

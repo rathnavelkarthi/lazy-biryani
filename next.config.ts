@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "export",
   trailingSlash: true,
   images: {
     unoptimized: true,
@@ -10,6 +9,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
         pathname: "/aida-public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "lagveenkavbovkagdorz.supabase.co",
+        pathname: "/storage/**",
       },
     ],
   },
