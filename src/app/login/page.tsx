@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, signup } = useAuth();
+  const { user, login, signup, resetPassword } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +18,16 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState("");
-  const { resetPassword } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      if (user.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/menu");
+      }
+    }
+  }, [user, router]);
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,31 +45,32 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    if (mode === "signup") {
-      if (!name.trim()) {
-        setError("Name is required");
-        setLoading(false);
-        return;
-      }
-      const result = await signup(email, password, name);
-      if (result.error) {
-        setError(result.error);
-        setLoading(false);
-        return;
-      }
-      router.push("/menu");
-    } else {
-      const result = await login(email, password);
-      if (result.error) {
-        setError(result.error);
-        setLoading(false);
-        return;
-      }
-      if (result.user?.role === "admin") {
-        router.push("/admin");
-      } else {
+    try {
+      if (mode === "signup") {
+        if (!name.trim()) {
+          setError("Name is required");
+          return;
+        }
+        const result = await signup(email, password, name);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
         router.push("/menu");
+      } else {
+        const result = await login(email, password);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.user?.role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/menu");
+        }
       }
+    } finally {
+      setLoading(false);
     }
   };
 

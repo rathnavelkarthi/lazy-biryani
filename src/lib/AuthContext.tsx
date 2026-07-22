@@ -39,20 +39,38 @@ const AuthContext = createContext<AuthContextType>({
   updatePassword: async () => ({}),
 });
 
-async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("name, role")
-    .eq("id", supabaseUser.id)
-    .single();
+async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("name, role")
+      .eq("id", supabaseUser.id)
+      .single();
 
-  if (error || !data) return null;
+    if (!error && data) {
+      return {
+        id: supabaseUser.id,
+        email: supabaseUser.email ?? "",
+        name: data.name,
+        role: data.role as UserRole,
+      };
+    }
+  } catch {
+    // Fallback to user_metadata below
+  }
+
+  const name =
+    (supabaseUser.user_metadata?.name as string) ||
+    supabaseUser.email?.split("@")[0] ||
+    "User";
+  const role = ((supabaseUser.user_metadata?.role as string) ||
+    (supabaseUser.email?.includes("admin") ? "admin" : "user")) as UserRole;
 
   return {
     id: supabaseUser.id,
     email: supabaseUser.email ?? "",
-    name: data.name,
-    role: data.role as UserRole,
+    name,
+    role,
   };
 }
 
@@ -97,11 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (data.user) {
       const profile = await fetchProfile(data.user);
-      if (profile) {
-        setUser(profile);
-        return { user: profile };
-      }
-      return { error: "Profile not found" };
+      setUser(profile);
+      return { user: profile };
     }
 
     return { error: "Login failed" };
