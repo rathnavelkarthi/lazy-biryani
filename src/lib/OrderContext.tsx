@@ -159,15 +159,42 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const fetchMyOrders = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setOrders(data.map(dbToOrder));
+    const isUuid = typeof user.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
+
+    if (isUuid) {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        setOrders(data.map(dbToOrder));
+        setLoading(false);
+        return;
+      }
     }
+
+    // Fallback: fetch via API for demo/guest orders
+    try {
+      const res = await fetch("/api/admin/orders");
+      const json = await res.json();
+      if (res.ok && json.orders) {
+        const userOrders = json.orders.filter(
+          (o: Record<string, unknown>) =>
+            o.user_id === user.id ||
+            o.user_name === user.name ||
+            (user.email && o.user_name === user.email.split("@")[0])
+        );
+        setOrders(userOrders.map(dbToOrder));
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Ignore API failure
+    }
+
     setLoading(false);
   }, [user]);
 

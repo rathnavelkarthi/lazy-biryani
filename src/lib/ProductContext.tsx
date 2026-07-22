@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "./supabase";
-import type { Product } from "./products";
+import { products as defaultProducts, type Product } from "./products";
 
 interface ProductContextType {
   products: Product[];
@@ -47,18 +47,26 @@ function dbToProduct(row: Record<string, unknown>): Product {
 }
 
 export function ProductProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(defaultProducts);
   const [loading, setLoading] = useState(true);
 
   const fetchProducts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("created_at", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      setProducts(data.map(dbToProduct));
+      if (!error && data && data.length > 0) {
+        setProducts(data.map(dbToProduct));
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Fall back to default products below
     }
+
+    setProducts(defaultProducts);
     setLoading(false);
   }, []);
 
