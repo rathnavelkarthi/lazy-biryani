@@ -39,6 +39,7 @@ interface PlaceOrderOptions {
   paymentStatus?: "pending" | "paid" | "failed";
   paymentId?: string;
   gatewayOrderId?: string;
+  existingOrderId?: string;
 }
 
 interface OrderContextType {
@@ -101,11 +102,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     ) => {
       if (!user) return { error: "You must be logged in to place an order" };
 
-      const orderId = `ORD-${Date.now().toString(36).toUpperCase()}`;
+      const orderId = options.existingOrderId || options.gatewayOrderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
+      const isUuid = typeof user.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
 
-      const { error } = await supabase.from("orders").insert({
+      const { error } = await supabase.from("orders").upsert({
         id: orderId,
-        user_id: user.id,
+        user_id: isUuid ? user.id : null,
         user_name: user.name,
         items,
         total,
@@ -140,6 +142,18 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
   const fetchAllOrders = useCallback(async () => {
     setLoading(true);
+    try {
+      const res = await fetch("/api/admin/orders");
+      const json = await res.json();
+      if (res.ok && json.orders) {
+        setOrders(json.orders.map(dbToOrder));
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Fallback to client query if API fails
+    }
+
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -152,6 +166,22 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const updateOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, status }),
+      });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+        );
+        return {};
+      }
+    } catch {
+      // fallback to client update
+    }
+
     const { error } = await supabase
       .from("orders")
       .update({ status })

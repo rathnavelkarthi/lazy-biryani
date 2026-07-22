@@ -68,6 +68,15 @@ CREATE POLICY "profiles_update_own" ON profiles
 CREATE POLICY "orders_read_own" ON orders
   FOR SELECT USING (auth.uid() = user_id);
 
+-- Orders: admins can read all orders
+CREATE POLICY "orders_admin_read" ON orders
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
+
 CREATE POLICY "orders_insert_own" ON orders
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 

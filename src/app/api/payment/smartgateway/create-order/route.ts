@@ -29,11 +29,12 @@ export async function POST(request: Request) {
       description: `Lazy Biryani Order ${orderId}`,
     });
 
-    // Optionally record or update order in Supabase if items are provided
+    // Record or update order in Supabase if items are provided
     if (items && address) {
-      await supabaseAdmin.from("orders").upsert({
+      const isUuid = typeof customerId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerId);
+      const { error: dbError } = await supabaseAdmin.from("orders").upsert({
         id: orderId,
-        user_id: customerId,
+        user_id: isUuid ? customerId : null,
         user_name: customerEmail?.split("@")[0] || "Customer",
         items,
         total: Number(amount),
@@ -43,6 +44,10 @@ export async function POST(request: Request) {
         payment_status: "pending",
         gateway_order_id: `GW_${orderId}`,
       });
+
+      if (dbError) {
+        console.error("Failed to upsert order in create-order:", dbError.message);
+      }
     }
 
     return NextResponse.json({
