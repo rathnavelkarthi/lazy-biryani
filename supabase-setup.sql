@@ -78,7 +78,11 @@ CREATE POLICY "orders_admin_read" ON orders
   );
 
 CREATE POLICY "orders_insert_own" ON orders
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
+
+CREATE POLICY "orders_update_own" ON orders
+  FOR UPDATE USING (auth.uid() = user_id OR user_id IS NULL)
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
 -- Orders: service role can manage all (for admin)
 CREATE POLICY "orders_service_all" ON orders

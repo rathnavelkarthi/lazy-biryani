@@ -103,6 +103,37 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       if (!user) return { error: "You must be logged in to place an order" };
 
       const orderId = options.existingOrderId || options.gatewayOrderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
+
+      try {
+        const res = await fetch("/api/orders/place", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: orderId,
+            user_id: user.id,
+            user_name: user.name,
+            items,
+            total,
+            status: options.paymentStatus === "paid" ? "preparing" : "pending",
+            address,
+            payment_method: options.paymentMethod || "cod",
+            payment_status: options.paymentStatus || (options.paymentMethod === "smartgateway" ? "pending" : "paid"),
+            payment_id: options.paymentId || null,
+            gateway_order_id: options.gatewayOrderId || null,
+          }),
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          return { orderId };
+        }
+        if (json.error) {
+          console.warn("API place order notice, falling back to client:", json.error);
+        }
+      } catch (err: unknown) {
+        console.warn("API place order error:", err);
+      }
+
       const isUuid = typeof user.id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
 
       const { error } = await supabase.from("orders").upsert({
