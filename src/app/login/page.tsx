@@ -74,16 +74,31 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (type: "admin" | "user") => {
+  const fillDemo = async (type: "admin" | "user") => {
     setMode("login");
-    if (type === "admin") {
-      setEmail("admin@lazybiryani.com");
-      setPassword("admin123");
-    } else {
-      setEmail("user@lazybiryani.com");
-      setPassword("user123");
-    }
     setError("");
+    setLoading(true);
+
+    const demoEmail = type === "admin" ? "admin@lazybiryani.com" : "user@lazybiryani.com";
+    const demoPassword = type === "admin" ? "admin123" : "user123";
+
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+
+    try {
+      const result = await login(demoEmail, demoPassword);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      if (result.user?.role === "admin") {
+        router.push("/admin");
+      } else {
+        router.push("/menu");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
