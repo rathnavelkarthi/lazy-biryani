@@ -11,8 +11,20 @@ import { Footer } from "@/components/landing/Footer";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
 import { AddressForm, type DeliveryAddress } from "@/components/checkout/AddressForm";
 import { useState } from "react";
+import { SmartGatewayModal } from "@/components/checkout/SmartGatewayModal";
+import type { SmartGatewaySDKPayload } from "@/lib/smartgateway";
 
-function OrderSuccess({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+function OrderSuccess({
+  orderId,
+  paymentMethod,
+  paymentId,
+  onClose,
+}: {
+  orderId: string;
+  paymentMethod?: string;
+  paymentId?: string;
+  onClose: () => void;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -38,9 +50,14 @@ function OrderSuccess({ orderId, onClose }: { orderId: string; onClose: () => vo
         <p className="text-xs text-on-surface-variant mb-1 font-bold">
           Order ID: {orderId}
         </p>
-        <p className="text-sm text-on-surface-variant mb-6">
-          Payment: Cash on Delivery
+        <p className="text-sm font-bold text-[#004B8D] mb-1">
+          Payment: {paymentMethod === "smartgateway" ? "Paid via HDFC SmartGateway" : "Cash on Delivery"}
         </p>
+        {paymentId && (
+          <p className="text-[11px] text-gray-500 font-mono mb-6">
+            Txn Ref: {paymentId}
+          </p>
+        )}
         <div className="flex flex-col gap-3">
           <Link href="/orders">
             <BrutalistButton variant="danger" size="md" className="w-full">
@@ -70,10 +87,17 @@ export default function CartPage() {
   const { placeOrder } = useOrders();
   const [ordered, setOrdered] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [lastPaymentId, setLastPaymentId] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"smartgateway" | "cod">("smartgateway");
   const [showAddress, setShowAddress] = useState(false);
   const [savedAddress, setSavedAddress] = useState<DeliveryAddress | null>(null);
   const [orderError, setOrderError] = useState("");
   const [placing, setPlacing] = useState(false);
+  const [showGatewayModal, setShowGatewayModal] = useState(false);
+  const [gatewaySession, setGatewaySession] = useState<{
+    orderId: string;
+    sdkPayload?: SmartGatewaySDKPayload;
+  } | null>(null);
 
   const handlePlaceOrder = async () => {
     if (!user) {
@@ -104,7 +128,49 @@ export default function CartPage() {
       savedAddress.phone,
     ].filter(Boolean).join(", ");
 
-    const result = await placeOrder(orderItems, totalPrice, addressStr);
+    const tempOrderId = `ORD-${Date.now().toString(36).toUpperCase()}`;
+
+    if (selectedPaymentMethod === "smartgateway") {
+      try {
+        const res = await fetch("/api/payment/smartgateway/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: tempOrderId,
+            amount: totalPrice,
+            customerId: user.id,
+            customerEmail: user.email,
+            items: orderItems,
+            address: addressStr,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setGatewaySession({
+            orderId: tempOrderId,
+            sdkPayload: data.data?.sdkPayload,
+          });
+          setShowGatewayModal(true);
+          setPlacing(false);
+          return;
+        } else {
+          setOrderError(data.error || "Failed to create payment session");
+          setPlacing(false);
+          return;
+        }
+      } catch (err: unknown) {
+        setOrderError(err instanceof Error ? err.message : "Payment error");
+        setPlacing(false);
+        return;
+      }
+    }
+
+    // COD order placement
+    const result = await placeOrder(orderItems, totalPrice, addressStr, {
+      paymentMethod: "cod",
+      paymentStatus: "pending",
+    });
 
     if (result.error) {
       setOrderError(result.error);
@@ -116,6 +182,47 @@ export default function CartPage() {
     setOrdered(true);
     clearCart();
     setPlacing(false);
+  };
+
+  const handleGatewaySuccess = async (paymentId: string) => {
+    setShowGatewayModal(false);
+    setPlacing(true);
+
+    if (!user || !savedAddress || !gatewaySession) return;
+
+    const orderItems = items.map((item) => ({
+      productId: item.product.id,
+      name: item.product.name,
+      price: item.product.price,
+      quantity: item.quantity,
+    }));
+
+    const addressStr = [
+      savedAddress.fullName,
+      savedAddress.addressLine1,
+      savedAddress.addressLine2,
+      savedAddress.landmark,
+      `${savedAddress.city} - ${savedAddress.pincode}`,
+      savedAddress.phone,
+    ].filter(Boolean).join(", ");
+
+    const result = await placeOrder(orderItems, totalPrice, addressStr, {
+      paymentMethod: "smartgateway",
+      paymentStatus: "paid",
+      paymentId,
+      gatewayOrderId: gatewaySession.orderId,
+    });
+
+    setPlacing(false);
+    if (result.error) {
+      setOrderError(result.error);
+      return;
+    }
+
+    setOrderId(result.orderId || gatewaySession.orderId);
+    setLastPaymentId(paymentId);
+    setOrdered(true);
+    clearCart();
   };
 
   const handleAddressSubmit = (address: DeliveryAddress) => {
@@ -301,14 +408,65 @@ export default function CartPage() {
                             {savedAddress.city} - {savedAddress.pincode}
                           </p>
                           <p className="text-xs text-on-surface-variant">{savedAddress.phone}</p>
-                          {savedAddress.lat && (
-                            <p className="text-xs text-tertiary mt-1 flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">my_location</span>
-                              GPS linked
-                            </p>
-                          )}
                         </div>
                       )}
+
+                      {/* Payment Method Selector */}
+                      <div className="mb-4">
+                        <label className="block text-xs font-black uppercase tracking-wider text-on-surface mb-2">
+                          Payment Method
+                        </label>
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPaymentMethod("smartgateway")}
+                            className={`w-full p-3 border-2 text-left flex items-center justify-between transition-all ${
+                              selectedPaymentMethod === "smartgateway"
+                                ? "border-[#004B8D] bg-blue-50/60 ring-2 ring-[#004B8D]"
+                                : "border-gray-300 hover:border-gray-400 bg-white"
+                            }`}
+                          >
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-xs text-[#004B8D] uppercase tracking-wider">
+                                  HDFC SmartGateway
+                                </span>
+                                <span className="bg-[#004B8D] text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                  Instant
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-600 mt-0.5">
+                                UPI, Credit/Debit Cards, NetBanking
+                              </p>
+                            </div>
+                            <span className="text-lg">
+                              {selectedPaymentMethod === "smartgateway" ? "🔘" : "⚪"}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPaymentMethod("cod")}
+                            className={`w-full p-3 border-2 text-left flex items-center justify-between transition-all ${
+                              selectedPaymentMethod === "cod"
+                                ? "border-black bg-surface-container ring-2 ring-black"
+                                : "border-gray-300 hover:border-gray-400 bg-white"
+                            }`}
+                          >
+                            <div>
+                              <p className="font-bold text-xs text-on-surface uppercase tracking-wider">
+                                Cash on Delivery (COD)
+                              </p>
+                              <p className="text-[11px] text-gray-600 mt-0.5">
+                                Pay cash when biryani arrives
+                              </p>
+                            </div>
+                            <span className="text-lg">
+                              {selectedPaymentMethod === "cod" ? "🔘" : "⚪"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
 
                       {/* Login prompt */}
                       {!user && (
@@ -331,16 +489,18 @@ export default function CartPage() {
                       )}
 
                       <BrutalistButton
-                        variant={savedAddress ? "danger" : "primary"}
+                        variant={selectedPaymentMethod === "smartgateway" ? "primary" : "danger"}
                         size="lg"
                         className="w-full text-base sm:text-lg"
                         onClick={handlePlaceOrder}
                         disabled={placing || !user}
                       >
                         {placing
-                          ? "Placing order..."
+                          ? "Processing..."
                           : savedAddress
-                            ? "Place Order (COD)"
+                            ? selectedPaymentMethod === "smartgateway"
+                              ? "Pay with HDFC SmartGateway"
+                              : "Place Order (COD)"
                             : "Add Delivery Address"}
                       </BrutalistButton>
 
@@ -348,7 +508,9 @@ export default function CartPage() {
                         <span className="material-symbols-outlined text-sm text-tertiary">
                           verified_user
                         </span>
-                        Cash on Delivery only
+                        {selectedPaymentMethod === "smartgateway"
+                          ? "256-bit Secure SmartGateway Checkout"
+                          : "Cash on Delivery option"}
                       </p>
                     </>
                   )}
@@ -358,11 +520,33 @@ export default function CartPage() {
           )}
         </div>
 
+        {/* SmartGateway Modal */}
+        {showGatewayModal && gatewaySession && (
+          <SmartGatewayModal
+            orderId={gatewaySession.orderId}
+            amount={totalPrice}
+            customerEmail={user?.email || "customer@lazybiryani.com"}
+            sdkPayload={gatewaySession.sdkPayload}
+            onSuccess={handleGatewaySuccess}
+            onFailure={(msg) => {
+              setShowGatewayModal(false);
+              setOrderError(msg);
+            }}
+            onClose={() => setShowGatewayModal(false)}
+          />
+        )}
+
         {ordered && (
-          <OrderSuccess orderId={orderId} onClose={() => setOrdered(false)} />
+          <OrderSuccess
+            orderId={orderId}
+            paymentMethod={selectedPaymentMethod}
+            paymentId={lastPaymentId}
+            onClose={() => setOrdered(false)}
+          />
         )}
       </main>
       <Footer />
     </>
   );
 }
+

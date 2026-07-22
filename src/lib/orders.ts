@@ -11,9 +11,13 @@ export interface Order {
   userName: string;
   items: OrderItem[];
   total: number;
-  status: "pending" | "preparing" | "out_for_delivery" | "delivered";
+  status: "pending" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
   createdAt: string;
   address: string;
+  paymentMethod?: "cod" | "smartgateway";
+  paymentStatus?: "pending" | "paid" | "failed";
+  paymentId?: string;
+  gatewayOrderId?: string;
 }
 
 // Mock orders for admin dashboard

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { useProducts } from "@/lib/ProductContext";
 import { useCart } from "@/lib/CartContext";
@@ -130,27 +131,34 @@ export default function MenuPage() {
                     </p>
 
                     {/* Price + CTA */}
-                    <div className="flex items-end justify-between mt-auto">
-                      <div>
-                        <span className="text-xs text-on-surface-variant line-through">
-                          &#8377;{product.originalPrice}
-                        </span>
-                        <div className="text-2xl font-black text-primary">
-                          &#8377;{product.price}
-                        </div>
-                      </div>
-                      <BrutalistButton
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleAdd(product)}
-                      >
-                        <span className="flex items-center gap-1">
-                          <span className="material-symbols-outlined text-lg">
-                            add_shopping_cart
+                    <div className="flex flex-col gap-2 mt-auto pt-2 border-t-2 border-dashed border-[#333333]">
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <span className="text-xs text-on-surface-variant line-through">
+                            &#8377;{product.originalPrice}
                           </span>
-                          Add
-                        </span>
-                      </BrutalistButton>
+                          <div className="text-2xl font-black text-primary">
+                            &#8377;{product.price}
+                          </div>
+                        </div>
+                        <BrutalistButton
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleAdd(product)}
+                        >
+                          <span className="flex items-center gap-1">
+                            <span className="material-symbols-outlined text-base">
+                              add_shopping_cart
+                            </span>
+                            Add
+                          </span>
+                        </BrutalistButton>
+                      </div>
+                      <Link href="/cart" onClick={() => addItem(product)}>
+                        <BrutalistButton variant="danger" size="sm" className="w-full text-xs py-2">
+                          ⚡ Buy Now & Pay (HDFC SmartGateway)
+                        </BrutalistButton>
+                      </Link>
                     </div>
                   </div>
                 </div>
