@@ -117,9 +117,18 @@ export default function OrdersPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge variant={statusVariant[order.status]}>
-                      {statusLabel[order.status]}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border uppercase ${
+                        order.paymentMethod === "smartgateway"
+                          ? "bg-blue-100 text-blue-900 border-blue-300"
+                          : "bg-gray-100 text-gray-700 border-gray-300"
+                      }`}>
+                        {order.paymentMethod === "smartgateway" ? "HDFC SmartGateway" : "COD"}
+                      </span>
+                      <Badge variant={statusVariant[order.status]}>
+                        {statusLabel[order.status]}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Order items */}
@@ -138,8 +147,11 @@ export default function OrdersPage() {
                     </div>
 
                     <div className="border-t-2 border-outline-variant pt-3 flex justify-between items-center">
-                      <div className="text-xs text-on-surface-variant max-w-[60%] truncate">
-                        {order.address}
+                      <div className="text-xs text-on-surface-variant max-w-[60%]">
+                        <p className="truncate">{order.address}</p>
+                        {order.paymentId && (
+                          <p className="font-mono text-[10px] text-blue-700 mt-0.5">Txn Ref: {order.paymentId}</p>
+                        )}
                       </div>
                       <span className="font-black text-primary text-xl">
                         &#8377;{order.total}

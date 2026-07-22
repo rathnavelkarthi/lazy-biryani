@@ -155,7 +155,7 @@ export default function AdminPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-[#333333] text-white">
-                      {["Order ID", "Customer", "Items", "Total", "Status", "Action"].map(
+                      {["Order ID", "Customer", "Items", "Total", "Payment", "Status", "Action"].map(
                         (h) => (
                           <th
                             key={h}
@@ -184,6 +184,27 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-3 font-black text-sm text-primary">
                           &#8377;{order.total}
+                        </td>
+                        <td className="px-4 py-3 text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`inline-block font-extrabold px-2 py-0.5 rounded text-[10px] uppercase border ${
+                              order.paymentMethod === "smartgateway"
+                                ? "bg-blue-100 text-blue-900 border-blue-400"
+                                : "bg-gray-100 text-gray-800 border-gray-400"
+                            }`}>
+                              {order.paymentMethod === "smartgateway" ? "💳 HDFC SmartGateway" : "💵 COD"}
+                            </span>
+                            <span className={`text-[10px] font-bold ${
+                              order.paymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"
+                            }`}>
+                              ● {order.paymentStatus?.toUpperCase() || "PENDING"}
+                            </span>
+                            {order.paymentId && (
+                              <span className="font-mono text-[9px] text-gray-500 truncate max-w-[110px]" title={order.paymentId}>
+                                {order.paymentId}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant={statusVariant[order.status]}>
@@ -224,9 +245,18 @@ export default function AdminPage() {
                           {order.userName}
                         </p>
                       </div>
-                      <Badge variant={statusVariant[order.status]}>
-                        {statusLabel[order.status]}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={statusVariant[order.status]}>
+                          {statusLabel[order.status]}
+                        </Badge>
+                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border uppercase ${
+                          order.paymentMethod === "smartgateway"
+                            ? "bg-blue-100 text-blue-900 border-blue-300"
+                            : "bg-gray-100 text-gray-700 border-gray-300"
+                        }`}>
+                          {order.paymentMethod === "smartgateway" ? "HDFC SmartGateway" : "COD"}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="text-sm text-on-surface-variant mb-2">
@@ -234,9 +264,16 @@ export default function AdminPage() {
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t-2 border-outline-variant">
-                      <span className="font-black text-primary text-lg">
-                        &#8377;{order.total}
-                      </span>
+                      <div>
+                        <span className="font-black text-primary text-lg block">
+                          &#8377;{order.total}
+                        </span>
+                        <span className={`text-[10px] font-bold ${
+                          order.paymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"
+                        }`}>
+                          Payment: {order.paymentStatus?.toUpperCase() || "PENDING"}
+                        </span>
+                      </div>
                       {nextStatus[order.status] && (
                         <button
                           onClick={() => handleStatusChange(order.id, nextStatus[order.status]!)}
