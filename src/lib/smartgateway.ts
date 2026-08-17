@@ -1,4 +1,11 @@
 import crypto from "crypto";
+import {
+  generateOrderId,
+  isValidOrderId,
+  sanitizeCustomerId,
+} from "./order-id";
+
+export { generateOrderId, isValidOrderId, sanitizeCustomerId };
 
 export interface SmartGatewayOrderRequest {
   orderId: string;
@@ -45,6 +52,69 @@ const CLIENT_ID = process.env.SMARTGATEWAY_CLIENT_ID || "hdfcmaster";
 const BASE_URL = process.env.SMARTGATEWAY_BASE_URL || "https://smartgateway.hdfcuat.bank.in";
 const ENVIRONMENT = (process.env.SMARTGATEWAY_ENV as "sandbox" | "uat" | "production") || "uat";
 const IS_TEST_MODE = process.env.NEXT_PUBLIC_SMARTGATEWAY_TEST_MODE !== "false";
+
+
+export interface SmartGatewayOrderStatus {
+  id: string;
+  order_id: string;
+  status: string;
+  status_id: number;
+  amount: number;
+  currency: string;
+  merchant_id: string;
+  customer_id?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  txn_id?: string;
+  payment_method?: string;
+  payment_method_type?: string;
+  payment_gateway_response?: {
+    resp_code?: string;
+    rrn?: string;
+    epg_txn_id?: string;
+    auth_id_code?: string;
+    txn_id?: string;
+    resp_message?: string;
+  };
+}
+
+/**
+ * Dual inquiry / Status API (mandatory per HDFC security audit).
+ * Server-to-server GET to SmartGateway: GET {base}/orders/{order_id}
+ * Auth: Basic base64(apiKey:) with x-merchantid and x-customerid headers.
+ */
+export async function inquiryOrderStatus(
+  orderId: string,
+  customerId?: string
+): Promise<{ ok: boolean; status?: SmartGatewayOrderStatus; error?: string }> {
+  const apiKey = process.env.SMARTGATEWAY_API_KEY || API_KEY;
+  const merchantId = process.env.SMARTGATEWAY_MERCHANT_ID || MERCHANT_ID;
+  const baseUrl = (BASE_URL || "https://smartgateway.hdfcuat.bank.in").replace(/\/$/, "");
+  const url = `${baseUrl}/orders/${encodeURIComponent(orderId)}`;
+
+  try {
+    const headers: Record<string, string> = {
+      Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
+      "x-merchantid": merchantId,
+      "Content-Type": "application/json",
+    };
+    if (customerId) headers["x-customerid"] = customerId;
+
+    const res = await fetch(url, { method: "GET", headers });
+    const data = await res.json();
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: data?.error_message || `Status inquiry failed with status ${res.status}`,
+      };
+    }
+    return { ok: true, status: data as SmartGatewayOrderStatus };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Status inquiry network error";
+    return { ok: false, error: msg };
+  }
+}
 
 /**
  * Generates HMAC SHA256 signature for SmartGateway payload verification

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { supabase } from "./supabase";
 import { useAuth } from "./AuthContext";
+import { generateOrderId } from "./order-id";
 
 export interface OrderItem {
   productId: string;
@@ -102,7 +103,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     ) => {
       if (!user) return { error: "You must be logged in to place an order" };
 
-      const orderId = options.existingOrderId || options.gatewayOrderId || `ORD-${Date.now().toString(36).toUpperCase()}`;
+      // Bank-compliant order ID: alphanumeric, <21 chars, non-sequential
+      const orderId = options.existingOrderId || options.gatewayOrderId || generateOrderId();
 
       try {
         const res = await fetch("/api/orders/place", {

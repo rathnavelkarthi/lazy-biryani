@@ -13,17 +13,18 @@ import { AddressForm, type DeliveryAddress } from "@/components/checkout/Address
 import { useState } from "react";
 import { SmartGatewayModal } from "@/components/checkout/SmartGatewayModal";
 import type { SmartGatewaySDKPayload } from "@/lib/smartgateway";
+import { generateOrderId } from "@/lib/order-id";
 
 function OrderSuccess({
   orderId,
+  amount,
   paymentMethod,
   paymentId,
-  onClose,
 }: {
   orderId: string;
+  amount: number;
   paymentMethod?: string;
   paymentId?: string;
-  onClose: () => void;
 }) {
   return (
     <motion.div
@@ -47,9 +48,26 @@ function OrderSuccess({
         <p className="text-on-surface-variant mb-1">
           Your biryani is being prepared.
         </p>
-        <p className="text-xs text-on-surface-variant mb-1 font-bold">
-          Order ID: {orderId}
-        </p>
+        <div className="border-2 border-[#333333] bg-surface-container p-4 my-4 text-left space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant">
+              Order Number
+            </span>
+            <span className="font-mono font-black text-on-surface text-sm">{orderId}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant">
+              Amount
+            </span>
+            <span className="font-black text-primary text-lg">₹{amount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-black uppercase tracking-widest text-on-surface-variant">
+              Status
+            </span>
+            <span className="font-black text-tertiary text-sm">SUCCESS</span>
+          </div>
+        </div>
         <p className="text-sm font-bold text-[#004B8D] mb-1">
           Payment: {paymentMethod === "smartgateway" ? "Paid via HDFC SmartGateway" : "Cash on Delivery"}
         </p>
@@ -87,6 +105,7 @@ export default function CartPage() {
   const { placeOrder } = useOrders();
   const [ordered, setOrdered] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [orderAmount, setOrderAmount] = useState(0);
   const [lastPaymentId, setLastPaymentId] = useState("");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<"smartgateway" | "cod">("smartgateway");
   const [showAddress, setShowAddress] = useState(false);
@@ -128,7 +147,8 @@ export default function CartPage() {
       savedAddress.phone,
     ].filter(Boolean).join(", ");
 
-    const tempOrderId = `ORD-${Date.now().toString(36).toUpperCase()}`;
+    // Bank-compliant order ID: alphanumeric, <21 chars, non-sequential
+    const tempOrderId = generateOrderId();
 
     if (selectedPaymentMethod === "smartgateway") {
       try {
@@ -179,6 +199,7 @@ export default function CartPage() {
     }
 
     setOrderId(result.orderId || "");
+    setOrderAmount(totalPrice);
     setOrdered(true);
     clearCart();
     setPlacing(false);
@@ -220,6 +241,7 @@ export default function CartPage() {
     }
 
     setOrderId(result.orderId || gatewaySession.orderId);
+    setOrderAmount(totalPrice);
     setLastPaymentId(paymentId);
     setOrdered(true);
     clearCart();
@@ -539,9 +561,9 @@ export default function CartPage() {
         {ordered && (
           <OrderSuccess
             orderId={orderId}
+            amount={orderAmount}
             paymentMethod={selectedPaymentMethod}
             paymentId={lastPaymentId}
-            onClose={() => setOrdered(false)}
           />
         )}
       </main>
