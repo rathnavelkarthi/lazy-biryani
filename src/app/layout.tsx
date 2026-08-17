@@ -38,6 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${plusJakartaSans.variable} ${dmSans.variable} ${caveat.variable} scroll-smooth`}
     >
       <head>
@@ -46,7 +47,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="font-[family-name:var(--font-dm-sans)] overflow-x-hidden grain-overlay">
+      <body suppressHydrationWarning className="font-[family-name:var(--font-dm-sans)] overflow-x-hidden grain-overlay">
         <AuthProvider>
           <ProductProvider>
             <CartProvider>

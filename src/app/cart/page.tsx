@@ -10,7 +10,7 @@ import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
 import { AddressForm, type DeliveryAddress } from "@/components/checkout/AddressForm";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SmartGatewayModal } from "@/components/checkout/SmartGatewayModal";
 import type { SmartGatewaySDKPayload } from "@/lib/smartgateway";
 import { generateOrderId } from "@/lib/order-id";
@@ -113,10 +113,15 @@ export default function CartPage() {
   const [orderError, setOrderError] = useState("");
   const [placing, setPlacing] = useState(false);
   const [showGatewayModal, setShowGatewayModal] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [gatewaySession, setGatewaySession] = useState<{
     orderId: string;
     sdkPayload?: SmartGatewaySDKPayload;
   } | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePlaceOrder = async () => {
     if (!user) {
@@ -252,7 +257,7 @@ export default function CartPage() {
     setShowAddress(false);
   };
 
-  const isEmpty = items.length === 0 && !ordered;
+  const isEmpty = mounted ? items.length === 0 && !ordered : true;
 
   return (
     <>
@@ -265,7 +270,11 @@ export default function CartPage() {
               Your Cart
             </h1>
             <p className="text-on-surface-variant">
-              {isEmpty ? "Nothing here yet. Go grab some biryani!" : `${totalItems} item${totalItems > 1 ? "s" : ""} ready to go.`}
+              {!mounted
+                ? "Loading your cart..."
+                : isEmpty
+                ? "Nothing here yet. Go grab some biryani!"
+                : `${totalItems} item${totalItems > 1 ? "s" : ""} ready to go.`}
             </p>
           </div>
 
