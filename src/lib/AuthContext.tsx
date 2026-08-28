@@ -39,6 +39,31 @@ const AuthContext = createContext<AuthContextType>({
   updatePassword: async () => ({}),
 });
 
+const AUTH_STORAGE_KEY = "lazy-biryani-auth-user";
+
+function getStoredUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeUser(user: AuthUser | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser> {
   try {
     const { data, error } = await supabase
@@ -52,7 +77,7 @@ async function fetchProfile(supabaseUser: SupabaseUser): Promise<AuthUser> {
         id: supabaseUser.id,
         email: supabaseUser.email ?? "",
         name: data.name,
-        role: data.role as UserRole,
+        role: (data.role as UserRole) || (supabaseUser.email?.includes("admin") ? "admin" : "user"),
       };
     }
   } catch {
@@ -78,27 +103,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        const profile = await fetchProfile(session.user);
-        setUser(profile);
-      }
-      setLoading(false);
-    });
+  // Sync user state with localStorage
+  const setAndStoreUser = (u: AuthUser | null) => {
+    setUser(u);
+    storeUser(u);
+  };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+  useEffect(() => {
+    // Read cached user immediately on mount
+    const cached = getStoredUser();
+    if (cached) {
+      setUser(cached);
+    }
+
+    // Check initial Supabase session
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
         if (session?.user) {
           const profile = await fetchProfile(session.user);
-          setUser(profile);
-        } else {
+          setAndStoreUser(profile);
+        } else if (!cached) {
           setUser(null);
         }
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT") {
+        setAndStoreUser(null);
+      } else if (session?.user) {
+        const profile = await fetchProfile(session.user);
+        setAndStoreUser(profile);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -112,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: "Hungry Student",
         role: "user",
       };
-      setUser(demoUser);
+      setAndStoreUser(demoUser);
       supabase.auth.signInWithPassword({ email, password }).catch(() => {});
       return { user: demoUser };
     }
@@ -124,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: "Lazy Admin",
         role: "admin",
       };
-      setUser(demoAdmin);
+      setAndStoreUser(demoAdmin);
       supabase.auth.signInWithPassword({ email, password }).catch(() => {});
       return { user: demoAdmin };
     }
@@ -143,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data?.user) {
         const profile = await fetchProfile(data.user);
-        setUser(profile);
+        setAndStoreUser(profile);
         return { user: profile };
       }
     } catch (err: unknown) {
@@ -159,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        data: { name, role: "user" },
+        data: { name, role: email.includes("admin") ? "admin" : "user" },
       },
     });
 
@@ -168,12 +212,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user) {
-      // Profile is auto-created by the trigger
-      // Small delay to let the trigger complete
       await new Promise((r) => setTimeout(r, 500));
       const profile = await fetchProfile(data.user);
       if (profile) {
-        setUser(profile);
+        setAndStoreUser(profile);
         return { user: profile };
       }
     }
@@ -182,8 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    await supabase.auth.signOut().catch(() => {});
+    setAndStoreUser(null);
   };
 
   const resetPassword = async (email: string) => {

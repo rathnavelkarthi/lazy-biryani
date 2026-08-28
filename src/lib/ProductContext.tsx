@@ -52,6 +52,20 @@ export function ProductProvider({ children }: { children: ReactNode }) {
 
   const fetchProducts = useCallback(async () => {
     try {
+      const res = await fetch("/api/admin/products");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.products && json.products.length > 0) {
+          setProducts(json.products.map(dbToProduct));
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // fallback to direct client query below
+    }
+
+    try {
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -75,51 +89,72 @@ export function ProductProvider({ children }: { children: ReactNode }) {
   }, [fetchProducts]);
 
   const addProduct = useCallback(async (product: Product) => {
-    const { error } = await supabase.from("products").insert({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      price: product.price,
-      original_price: product.originalPrice,
-      description: product.description,
-      spice_level: product.spiceLevel,
-      image: product.image,
-      tag: product.tag || null,
-      available: product.available,
-    });
-    if (!error) {
-      setProducts((prev) => [...prev, product]);
+    // Optimistic UI update
+    setProducts((prev) => [...prev, product]);
+
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(product),
+      });
+
+      if (!res.ok) {
+        // Fallback to direct client insert if API fails
+        await supabase.from("products").insert({
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          original_price: product.originalPrice,
+          description: product.description,
+          spice_level: product.spiceLevel,
+          image: product.image,
+          tag: product.tag || null,
+          available: product.available,
+        });
+      }
+    } catch (err) {
+      console.warn("Product add API error:", err);
     }
   }, []);
 
   const updateProduct = useCallback(async (id: string, updates: Partial<Product>) => {
-    const dbUpdates: Record<string, unknown> = {};
-    if (updates.name !== undefined) dbUpdates.name = updates.name;
-    if (updates.slug !== undefined) dbUpdates.slug = updates.slug;
-    if (updates.price !== undefined) dbUpdates.price = updates.price;
-    if (updates.originalPrice !== undefined) dbUpdates.original_price = updates.originalPrice;
-    if (updates.description !== undefined) dbUpdates.description = updates.description;
-    if (updates.spiceLevel !== undefined) dbUpdates.spice_level = updates.spiceLevel;
-    if (updates.image !== undefined) dbUpdates.image = updates.image;
-    if (updates.tag !== undefined) dbUpdates.tag = updates.tag || null;
-    if (updates.available !== undefined) dbUpdates.available = updates.available;
+    // Optimistically update UI immediately
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+    );
 
-    const { error } = await supabase
-      .from("products")
-      .update(dbUpdates)
-      .eq("id", id);
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...updates }),
+      });
 
-    if (!error) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-      );
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.warn("Product update API returned error:", json);
+      }
+    } catch (err) {
+      console.warn("Product update API error:", err);
     }
   }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
-    const { error } = await supabase.from("products").delete().eq("id", id);
-    if (!error) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+    // Optimistic UI update
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+
+    try {
+      const res = await fetch(`/api/admin/products?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        await supabase.from("products").delete().eq("id", id);
+      }
+    } catch (err) {
+      console.warn("Product delete API error:", err);
     }
   }, []);
 
@@ -127,14 +162,20 @@ export function ProductProvider({ children }: { children: ReactNode }) {
     const product = products.find((p) => p.id === id);
     if (!product) return;
     const newAvailable = !product.available;
-    const { error } = await supabase
-      .from("products")
-      .update({ available: newAvailable })
-      .eq("id", id);
-    if (!error) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, available: newAvailable } : p))
-      );
+
+    // Optimistic UI update
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, available: newAvailable } : p))
+    );
+
+    try {
+      await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, available: newAvailable }),
+      });
+    } catch (err) {
+      console.warn("Toggle availability error:", err);
     }
   }, [products]);
 
