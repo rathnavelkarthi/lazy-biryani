@@ -12,6 +12,7 @@ type ResponseState =
   | { phase: "loading" }
   | { phase: "success"; orderId: string; amount: number; paymentId: string; gatewayStatus?: string }
   | { phase: "failed"; orderId: string; message: string }
+  | { phase: "empty" }
   | { phase: "error"; message: string };
 
 function PaymentResponseContent() {
@@ -23,7 +24,22 @@ function PaymentResponseContent() {
     let cancelled = false;
 
     async function resolve() {
-      const orderId = searchParams.get("orderId") || searchParams.get("order_id");
+      const paramOrderId =
+        searchParams.get("orderId") ||
+        searchParams.get("order_id") ||
+        searchParams.get("orderID") ||
+        searchParams.get("order_no");
+
+      let cachedOrderId: string | null = null;
+      if (typeof window !== "undefined") {
+        try {
+          cachedOrderId = localStorage.getItem("lazy-biryani-last-order-id");
+        } catch {
+          // ignore
+        }
+      }
+
+      const orderId = paramOrderId || cachedOrderId;
       const status = searchParams.get("status") || searchParams.get("status_id") || "";
       const paymentId =
         searchParams.get("paymentId") ||
@@ -35,7 +51,7 @@ function PaymentResponseContent() {
       const signature = searchParams.get("signature") || "";
 
       if (!orderId) {
-        setState({ phase: "error", message: "Missing order reference." });
+        setState({ phase: "empty" });
         return;
       }
 
@@ -66,7 +82,7 @@ function PaymentResponseContent() {
           setState({
             phase: "success",
             orderId,
-            amount: orderData?.amount ?? (amount ? Number(amount) : 0),
+            amount: orderData?.amount ?? (amount ? Number(amount) : data.amount || 0),
             paymentId: data.paymentId || paymentId || "",
             gatewayStatus: data.gatewayStatus || orderData?.status,
           });
@@ -99,6 +115,30 @@ function PaymentResponseContent() {
         <div className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow p-8 text-center">
           <span className="inline-block animate-spin text-3xl mb-3">⏳</span>
           <p className="font-bold text-on-surface">Verifying payment with HDFC SmartGateway...</p>
+        </div>
+      )}
+
+      {state.phase === "empty" && (
+        <div className="bg-surface-container-lowest border-4 border-[#333333] brutalist-shadow p-8 text-center">
+          <span className="material-symbols-outlined text-4xl text-secondary mb-3 block">receipt_long</span>
+          <h1 className="font-[family-name:var(--font-plus-jakarta-sans)] text-2xl font-black text-on-surface mb-2">
+            Payment Status
+          </h1>
+          <p className="text-sm text-on-surface-variant mb-6">
+            No active payment was found for this session. Check your orders or browse our menu.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Link href="/orders">
+              <BrutalistButton variant="primary" size="md" className="w-full">
+                View My Orders
+              </BrutalistButton>
+            </Link>
+            <Link href="/menu">
+              <BrutalistButton variant="secondary" size="md" className="w-full">
+                Browse Menu
+              </BrutalistButton>
+            </Link>
+          </div>
         </div>
       )}
 

@@ -174,6 +174,11 @@ export default function CartPage() {
         if (res.ok && data.success) {
           const paymentUrl = data.data?.paymentUrl;
           if (paymentUrl) {
+            try {
+              localStorage.setItem("lazy-biryani-last-order-id", tempOrderId);
+            } catch {
+              // ignore
+            }
             // Redirect directly to HDFC SmartGateway payment page at base URL
             window.location.href = paymentUrl;
             return;

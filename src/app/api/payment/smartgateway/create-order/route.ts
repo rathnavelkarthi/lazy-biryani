@@ -95,7 +95,7 @@ export async function POST(request: Request) {
 
     const host = request.headers.get("host") || "localhost:3000";
     const protocol = host.includes("localhost") ? "http" : "https";
-    const returnUrl = `${protocol}://${host}/payment/response`;
+    const returnUrl = `${protocol}://${host}/payment/response/`;
 
     // Generate SmartGateway session & hosted checkout payment URL
     const session = await createSmartGatewaySession({
