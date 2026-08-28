@@ -97,8 +97,8 @@ export async function POST(request: Request) {
     const protocol = host.includes("localhost") ? "http" : "https";
     const returnUrl = `${protocol}://${host}/payment/response`;
 
-    // Generate SmartGateway session & SDK payload
-    const session = createSmartGatewaySession({
+    // Generate SmartGateway session & hosted checkout payment URL
+    const session = await createSmartGatewaySession({
       orderId,
       amount: validatedAmount,
       customerId: safeCustomerId,
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         address,
         payment_method: "smartgateway",
         payment_status: "pending",
-        gateway_order_id: `GW_${orderId}`,
+        gateway_order_id: session.gatewayOrderId || `GW_${orderId}`,
       });
 
       if (dbError) {
@@ -134,6 +134,7 @@ export async function POST(request: Request) {
       message: "SmartGateway payment session created successfully",
       data: {
         ...session,
+        paymentUrl: session.paymentUrl,
         orderId,
         amount: validatedAmount,
       },

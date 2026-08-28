@@ -73,10 +73,13 @@ export async function POST(request: Request) {
     //    marking the order as paid.
     // ---------------------------------------------------------------
     let gatewayStatus: string | undefined;
+    let gatewayTxnId: string | undefined;
+
     if (!isTestMode) {
       const inquiry = await inquiryOrderStatus(orderId, existingOrder?.user_id ? sanitizeCustomerId(existingOrder.user_id) : undefined);
       if (inquiry.ok && inquiry.status) {
         gatewayStatus = inquiry.status.status;
+        gatewayTxnId = inquiry.status.txn_id || inquiry.status.payment_gateway_response?.txn_id || inquiry.status.payment_gateway_response?.epg_txn_id;
 
         // Validate amount returned by gateway against DB order total.
         if (existingOrder && typeof inquiry.status.amount === "number") {
@@ -97,8 +100,10 @@ export async function POST(request: Request) {
     }
 
     let isValid = false;
+    const isChargedGateway = gatewayStatus === "CHARGED" || gatewayStatus === "SUCCESS" || gatewayStatus === "21";
+    const isChargedParam = status === "CHARGED" || status === "SUCCESS" || status === "21";
 
-    if (isTestMode || status === "CHARGED" || status === "SUCCESS") {
+    if (isTestMode || isChargedGateway || isChargedParam) {
       isValid = true;
     } else if (signature) {
       const verifyParams: Record<string, string> = {
@@ -116,8 +121,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // In non-test mode, require the gateway inquiry to confirm CHARGED.
-    if (!isTestMode && gatewayStatus && gatewayStatus !== "CHARGED" && gatewayStatus !== "SUCCESS") {
+    // In non-test mode, require the gateway inquiry to confirm CHARGED if returned.
+    if (!isTestMode && gatewayStatus && !isChargedGateway) {
       return NextResponse.json(
         {
           error: `Payment not successful. Gateway status: ${gatewayStatus}`,
@@ -128,8 +133,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const txnPaymentId = paymentId || (gatewayStatus ? `TXN_${Date.now()}` : `TXN_${Date.now()}`);
-    const paymentStatus = (status === "CHARGED" || status === "SUCCESS" || isTestMode) ? "paid" : "failed";
+    const txnPaymentId = paymentId || gatewayTxnId || `HDFC_TXN_${Date.now()}`;
+    const paymentStatus = (isChargedGateway || isChargedParam || isTestMode) ? "paid" : "failed";
     const orderStatus = paymentStatus === "paid" ? "preparing" : "pending";
 
     // Update order in Supabase

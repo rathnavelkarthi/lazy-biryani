@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { BrutalistButton } from "@/components/ui/BrutalistButton";
+import { useCart } from "@/lib/CartContext";
 
 type ResponseState =
   | { phase: "loading" }
@@ -16,16 +17,22 @@ type ResponseState =
 function PaymentResponseContent() {
   const searchParams = useSearchParams();
   const [state, setState] = useState<ResponseState>({ phase: "loading" });
+  const { clearCart } = useCart();
 
   useEffect(() => {
     let cancelled = false;
 
     async function resolve() {
-      const orderId = searchParams.get("orderId");
-      const status = searchParams.get("status") || "CHARGED";
-      const paymentId = searchParams.get("paymentId") || "";
+      const orderId = searchParams.get("orderId") || searchParams.get("order_id");
+      const status = searchParams.get("status") || searchParams.get("status_id") || "";
+      const paymentId =
+        searchParams.get("paymentId") ||
+        searchParams.get("payment_id") ||
+        searchParams.get("txn_id") ||
+        searchParams.get("epg_txn_id") ||
+        "";
       const amount = searchParams.get("amount");
-      const signature = searchParams.get("signature") || "test_sig_hdfc_smartgateway_pass";
+      const signature = searchParams.get("signature") || "";
 
       if (!orderId) {
         setState({ phase: "error", message: "Missing order reference." });
@@ -49,6 +56,8 @@ function PaymentResponseContent() {
         if (cancelled) return;
 
         if (res.ok && data.verified) {
+          clearCart();
+
           const orderRes = await fetch(`/api/payment/smartgateway/order-status?orderId=${encodeURIComponent(orderId)}`);
           const orderData = await orderRes.json();
 
@@ -65,7 +74,7 @@ function PaymentResponseContent() {
           setState({
             phase: "failed",
             orderId,
-            message: data.error || "Payment verification failed.",
+            message: data.error || "Payment was not completed or failed verification.",
           });
         }
       } catch (err: unknown) {
@@ -79,7 +88,7 @@ function PaymentResponseContent() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+  }, [searchParams, clearCart]);
 
   const amountLabel = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(n);

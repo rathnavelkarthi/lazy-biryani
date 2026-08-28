@@ -48,11 +48,11 @@ export interface SmartGatewayVerifyResponse {
 const MERCHANT_ID = process.env.SMARTGATEWAY_MERCHANT_ID || "SG5441";
 const API_KEY = process.env.SMARTGATEWAY_API_KEY || "CE5CDCA9CBF4A95B2CF8A5A5269D6D";
 const RESPONSE_KEY = process.env.SMARTGATEWAY_RESPONSE_KEY || "A6B589E2067410492F5DFEDD1E5772";
-const CLIENT_ID = process.env.SMARTGATEWAY_CLIENT_ID || "hdfcmaster";
+const CLIENT_ID = process.env.SMARTGATEWAY_PAYMENT_PAGE_CLIENT_ID || process.env.SMARTGATEWAY_CLIENT_ID || "hdfcmaster";
 const BASE_URL = process.env.SMARTGATEWAY_BASE_URL || "https://smartgateway.hdfcuat.bank.in";
 const ENVIRONMENT = (process.env.SMARTGATEWAY_ENV as "sandbox" | "uat" | "production") || "uat";
-const IS_TEST_MODE = process.env.NEXT_PUBLIC_SMARTGATEWAY_TEST_MODE !== "false";
-
+const IS_TEST_MODE = process.env.NEXT_PUBLIC_SMARTGATEWAY_TEST_MODE === "true";
+const ENABLE_LOGGING = process.env.SMARTGATEWAY_ENABLE_LOGGING === "true";
 
 export interface SmartGatewayOrderStatus {
   id: string;
@@ -78,6 +78,24 @@ export interface SmartGatewayOrderStatus {
   };
 }
 
+export interface SmartGatewaySessionResponse {
+  merchantId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  environment: string;
+  isTestMode: boolean;
+  paymentUrl: string;
+  gatewayOrderId?: string;
+  gatewayStatus?: string;
+  paymentLinks?: {
+    web?: string;
+    mobile?: string;
+    iframe?: string;
+  };
+  sdkPayload?: SmartGatewaySDKPayload;
+}
+
 /**
  * Dual inquiry / Status API (mandatory per HDFC security audit).
  * Server-to-server GET to SmartGateway: GET {base}/orders/{order_id}
@@ -89,7 +107,7 @@ export async function inquiryOrderStatus(
 ): Promise<{ ok: boolean; status?: SmartGatewayOrderStatus; error?: string }> {
   const apiKey = process.env.SMARTGATEWAY_API_KEY || API_KEY;
   const merchantId = process.env.SMARTGATEWAY_MERCHANT_ID || MERCHANT_ID;
-  const baseUrl = (BASE_URL || "https://smartgateway.hdfcuat.bank.in").replace(/\/$/, "");
+  const baseUrl = (process.env.SMARTGATEWAY_BASE_URL || BASE_URL || "https://smartgateway.hdfcuat.bank.in").replace(/\/$/, "");
   const url = `${baseUrl}/orders/${encodeURIComponent(orderId)}`;
 
   try {
@@ -99,6 +117,10 @@ export async function inquiryOrderStatus(
       "Content-Type": "application/json",
     };
     if (customerId) headers["x-customerid"] = customerId;
+
+    if (ENABLE_LOGGING) {
+      console.log("[SmartGateway] Checking order status:", url);
+    }
 
     const res = await fetch(url, { method: "GET", headers });
     const data = await res.json();
@@ -126,38 +148,88 @@ export function generateHMACSignature(params: Record<string, string>, secretKey:
 }
 
 /**
- * Creates SmartGateway Order Session and React Native SDK compatible payload
+ * Creates SmartGateway Order Session via POST {BASE_URL}/session
+ * Returns hosted checkout payment URL to redirect user directly to HDFC SmartGateway Base URL.
  */
-export function createSmartGatewaySession(req: SmartGatewayOrderRequest) {
+export async function createSmartGatewaySession(req: SmartGatewayOrderRequest): Promise<SmartGatewaySessionResponse> {
+  const apiKey = process.env.SMARTGATEWAY_API_KEY || API_KEY;
+  const merchantId = process.env.SMARTGATEWAY_MERCHANT_ID || MERCHANT_ID;
+  const clientId = process.env.SMARTGATEWAY_PAYMENT_PAGE_CLIENT_ID || process.env.SMARTGATEWAY_CLIENT_ID || CLIENT_ID;
+  const baseUrl = (process.env.SMARTGATEWAY_BASE_URL || BASE_URL || "https://smartgateway.hdfcuat.bank.in").replace(/\/$/, "");
   const amountStr = req.amount.toFixed(2);
   const timestamp = Date.now().toString();
 
-  const payloadParams: Record<string, string> = {
-    action: "paymentPage",
-    merchantId: MERCHANT_ID,
-    clientId: CLIENT_ID,
-    orderId: req.orderId,
+  const sessionBody = {
+    order_id: req.orderId,
     amount: amountStr,
     currency: "INR",
-    customerId: req.customerId,
-    customerEmail: req.customerEmail,
-    customerPhone: req.customerPhone || "9999999999",
-    returnUrl: req.returnUrl,
-    environment: ENVIRONMENT === "uat" ? "sandbox" : ENVIRONMENT,
-    timestamp,
+    customer_id: req.customerId,
+    customer_email: req.customerEmail || "guest@lazybiryani.com",
+    customer_phone: req.customerPhone || "9999999999",
+    payment_page_client_id: clientId,
+    action: "paymentPage",
+    return_url: req.returnUrl,
+    description: req.description || `Lazy Biryani Order ${req.orderId}`,
   };
 
-  // Sign payload
-  const signature = generateHMACSignature(payloadParams, API_KEY);
+  const headers: Record<string, string> = {
+    Authorization: `Basic ${Buffer.from(`${apiKey}:`).toString("base64")}`,
+    "x-merchantid": merchantId,
+    "x-customerid": req.customerId,
+    "Content-Type": "application/json",
+  };
 
-  // React Native Hypercheckout SDK payload structure (as expected by @juspay-tech/react-native-hypersdk)
-  const sdkPayload: SmartGatewaySDKPayload = {
-    requestId: `REQ_${timestamp}`,
-    service: "in.juspay.hyperpay",
-    payload: {
+  if (ENABLE_LOGGING) {
+    console.log("[SmartGateway] Initiating session:", { url: `${baseUrl}/session`, body: sessionBody });
+  }
+
+  try {
+    const res = await fetch(`${baseUrl}/session`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(sessionBody),
+    });
+
+    const data = await res.json();
+
+    if (ENABLE_LOGGING) {
+      console.log("[SmartGateway] Session response status:", res.status, data);
+    }
+
+    if (res.ok && (data.payment_links || data.status)) {
+      const paymentUrl =
+        data.payment_links?.web ||
+        data.payment_links?.mobile ||
+        data.payment_links?.iframe ||
+        `${baseUrl}/payment-page/order/${data.id || req.orderId}`;
+
+      return {
+        merchantId,
+        orderId: req.orderId,
+        amount: req.amount,
+        currency: "INR",
+        environment: ENVIRONMENT,
+        isTestMode: false,
+        paymentUrl,
+        gatewayOrderId: data.id,
+        gatewayStatus: data.status,
+        paymentLinks: data.payment_links,
+        sdkPayload: data.sdk_payload,
+      };
+    }
+
+    throw new Error(data?.error_message || data?.message || `Gateway returned status ${res.status}`);
+  } catch (err: unknown) {
+    if (!IS_TEST_MODE) {
+      throw err;
+    }
+
+    // Fallback for offline local sandbox test if enabled
+    console.warn("[SmartGateway] Live session creation failed, using sandbox fallback:", err);
+    const payloadParams: Record<string, string> = {
       action: "paymentPage",
-      merchantId: MERCHANT_ID,
-      clientId: CLIENT_ID,
+      merchantId,
+      clientId,
       orderId: req.orderId,
       amount: amountStr,
       currency: "INR",
@@ -166,31 +238,42 @@ export function createSmartGatewaySession(req: SmartGatewayOrderRequest) {
       customerPhone: req.customerPhone || "9999999999",
       returnUrl: req.returnUrl,
       environment: ENVIRONMENT === "uat" ? "sandbox" : ENVIRONMENT,
-      sdkPayloadVersion: "v1",
-      signature,
-    },
-  };
+      timestamp,
+    };
 
-  const getGatewayUrl = () => {
-    if (BASE_URL) return `${BASE_URL.replace(/\/$/, "")}/checkout`;
-    if (ENVIRONMENT === "uat") return "https://smartgateway.hdfcuat.bank.in/checkout";
-    if (ENVIRONMENT === "sandbox") return "https://sandbox.smartgateway.hdfc.bank.in/checkout";
-    return "https://smartgateway.hdfc.bank.in/checkout";
-  };
+    const signature = generateHMACSignature(payloadParams, apiKey);
 
-  return {
-    merchantId: MERCHANT_ID,
-    orderId: req.orderId,
-    amount: req.amount,
-    currency: "INR",
-    environment: ENVIRONMENT,
-    isTestMode: IS_TEST_MODE,
-    sdkPayload,
-    gatewayUrl: getGatewayUrl(),
-    dashboardUrl: ENVIRONMENT === "uat"
-      ? "https://dashboard.smartgateway.hdfcuat.bank.in"
-      : "https://dashboard.smartgateway.hdfc.bank.in",
-  };
+    const sdkPayload: SmartGatewaySDKPayload = {
+      requestId: `REQ_${timestamp}`,
+      service: "in.juspay.hyperpay",
+      payload: {
+        action: "paymentPage",
+        merchantId,
+        clientId,
+        orderId: req.orderId,
+        amount: amountStr,
+        currency: "INR",
+        customerId: req.customerId,
+        customerEmail: req.customerEmail,
+        customerPhone: req.customerPhone || "9999999999",
+        returnUrl: req.returnUrl,
+        environment: ENVIRONMENT === "uat" ? "sandbox" : ENVIRONMENT,
+        sdkPayloadVersion: "v1",
+        signature,
+      },
+    };
+
+    return {
+      merchantId,
+      orderId: req.orderId,
+      amount: req.amount,
+      currency: "INR",
+      environment: ENVIRONMENT,
+      isTestMode: true,
+      paymentUrl: `${baseUrl}/payment-page/order/${req.orderId}`,
+      sdkPayload,
+    };
+  }
 }
 
 /**

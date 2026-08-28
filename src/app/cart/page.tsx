@@ -172,6 +172,13 @@ export default function CartPage() {
 
         const data = await res.json();
         if (res.ok && data.success) {
+          const paymentUrl = data.data?.paymentUrl;
+          if (paymentUrl) {
+            // Redirect directly to HDFC SmartGateway payment page at base URL
+            window.location.href = paymentUrl;
+            return;
+          }
+
           setGatewaySession({
             orderId: tempOrderId,
             sdkPayload: data.data?.sdkPayload,
