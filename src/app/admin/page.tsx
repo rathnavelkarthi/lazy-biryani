@@ -195,9 +195,13 @@ export default function AdminPage() {
                               {order.paymentMethod === "smartgateway" ? "💳 HDFC SmartGateway" : "💵 COD"}
                             </span>
                             <span className={`text-[10px] font-bold ${
-                              order.paymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"
+                              order.paymentStatus === "paid"
+                                ? "text-emerald-700"
+                                : order.paymentStatus === "failed"
+                                ? "text-red-700"
+                                : "text-amber-700"
                             }`}>
-                              ● {order.paymentStatus?.toUpperCase() || "PENDING"}
+                              ● {order.paymentStatus === "failed" ? "FAILED (NOT CHARGED)" : (order.paymentStatus?.toUpperCase() || "PENDING")}
                             </span>
                             {order.paymentId && (
                               <span className="font-mono text-[9px] text-gray-500 truncate max-w-[110px]" title={order.paymentId}>
@@ -269,9 +273,13 @@ export default function AdminPage() {
                           &#8377;{order.total}
                         </span>
                         <span className={`text-[10px] font-bold ${
-                          order.paymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"
+                          order.paymentStatus === "paid"
+                            ? "text-emerald-700"
+                            : order.paymentStatus === "failed"
+                            ? "text-red-700"
+                            : "text-amber-700"
                         }`}>
-                          Payment: {order.paymentStatus?.toUpperCase() || "PENDING"}
+                          Payment: {order.paymentStatus === "failed" ? "FAILED (NOT CHARGED)" : (order.paymentStatus?.toUpperCase() || "PENDING")}
                         </span>
                       </div>
                       {nextStatus[order.status] && (

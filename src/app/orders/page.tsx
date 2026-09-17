@@ -125,6 +125,16 @@ export default function OrdersPage() {
                       }`}>
                         {order.paymentMethod === "smartgateway" ? "HDFC SmartGateway" : "COD"}
                       </span>
+                      {order.paymentStatus === "failed" && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded border uppercase bg-red-100 text-red-800 border-red-300">
+                          Payment Failed (Not Charged)
+                        </span>
+                      )}
+                      {order.paymentStatus === "paid" && (
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded border uppercase bg-emerald-100 text-emerald-800 border-emerald-300">
+                          Paid
+                        </span>
+                      )}
                       <Badge variant={statusVariant[order.status]}>
                         {statusLabel[order.status]}
                       </Badge>
@@ -153,9 +163,22 @@ export default function OrdersPage() {
                           <p className="font-mono text-[10px] text-blue-700 mt-0.5">Txn Ref: {order.paymentId}</p>
                         )}
                       </div>
-                      <span className="font-black text-primary text-xl">
-                        &#8377;{order.total}
-                      </span>
+                      <div className="text-right">
+                        {order.paymentStatus === "failed" ? (
+                          <>
+                            <span className="block font-black text-xl text-error">
+                              &#8377;0.00
+                            </span>
+                            <span className="block text-[10px] font-bold text-error">
+                              Not Charged &bull; Attempted: &#8377;{order.total}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="font-black text-xl text-primary">
+                            &#8377;{order.total}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

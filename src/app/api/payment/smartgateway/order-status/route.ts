@@ -40,18 +40,29 @@ export async function GET(request: Request) {
         console.warn("Supabase fetch fallback in test mode:", e);
       }
 
-      const paid = data ? data.payment_status === "paid" : true;
+      const isPaid = data?.payment_status === "paid";
+      const isFailed = data?.payment_status === "failed";
       const amount = data ? Number(data.total) : 349.0;
       const createdAt = data?.created_at || new Date().toISOString();
-      const txnId = data?.payment_id || `HDFC_TXN_${Date.now()}`;
+      const txnId = data?.payment_id || (isFailed ? `HDFC_FAILED_${Date.now()}` : `HDFC_TXN_${Date.now()}`);
+
+      const status = isPaid ? "CHARGED" : isFailed ? "FAILED" : "NEW";
+      const statusId = isPaid ? 21 : isFailed ? 22 : 10;
+      const respCode = isPaid ? "SUCCESS" : isFailed ? "FAILURE" : "PENDING";
+      const respMessage = isPaid
+        ? "Transaction Successful / Approved"
+        : isFailed
+        ? "Transaction Failed / Declined (Not Charged)"
+        : "Transaction Pending / Awaiting Payment";
 
       return NextResponse.json({
         id: `orde_${orderId.toLowerCase()}`,
         order_id: orderId,
         merchant_id: process.env.SMARTGATEWAY_MERCHANT_ID || "SG5441",
-        status: paid ? "CHARGED" : "NEW",
-        status_id: paid ? 21 : 10,
+        status,
+        status_id: statusId,
         amount: amount,
+        amount_charged: isPaid ? amount : 0,
         currency: "INR",
         date_created: createdAt,
         customer_id: data?.user_id || "cust_lazy_9876",
@@ -61,12 +72,12 @@ export async function GET(request: Request) {
         payment_method_type: "UPI",
         payment_method: "UPI",
         payment_gateway_response: {
-          resp_code: "SUCCESS",
+          resp_code: respCode,
           rrn: `3245${Math.floor(10000000 + Math.random() * 90000000)}`,
           epg_txn_id: txnId,
-          auth_id_code: "123456",
+          auth_id_code: isPaid ? "123456" : "",
           txn_id: txnId,
-          resp_message: "Transaction Successful / Approved",
+          resp_message: respMessage,
         },
       });
     }

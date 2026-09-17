@@ -13,9 +13,32 @@ export async function POST(request: Request) {
 
     const isTestMode = process.env.NEXT_PUBLIC_SMARTGATEWAY_TEST_MODE !== "false";
 
+    // Normalise incoming status parameters
+    const upperParamStatus = (status || "").toUpperCase();
+    const isExplicitlyFailedParam =
+      upperParamStatus === "FAILED" ||
+      upperParamStatus === "FAILURE" ||
+      upperParamStatus === "AUTHENTICATION_FAILED" ||
+      upperParamStatus === "AUTHORIZATION_FAILED" ||
+      upperParamStatus === "CANCELLED" ||
+      upperParamStatus === "CANCELED" ||
+      upperParamStatus === "DECLINED" ||
+      upperParamStatus === "REJECTED" ||
+      upperParamStatus === "USER_DROPPED" ||
+      upperParamStatus === "USER_ABORTED" ||
+      upperParamStatus === "AUTO_REFUNDED" ||
+      upperParamStatus === "CAPTURE_FAILED" ||
+      upperParamStatus === "TIMEOUT" ||
+      upperParamStatus === "ERROR" ||
+      upperParamStatus === "22" ||
+      upperParamStatus === "26" ||
+      upperParamStatus === "27" ||
+      upperParamStatus === "12" ||
+      upperParamStatus === "13";
+
     // ---------------------------------------------------------------
     // 1) Duplicate entry validation (bank audit point #5)
-    //    Check whether this order has already been recorded as paid.
+    //    Only honor cached paid status if current callback is NOT explicitly failed
     // ---------------------------------------------------------------
     const { data: existingOrder } = await supabaseAdmin
       .from("orders")
@@ -23,7 +46,7 @@ export async function POST(request: Request) {
       .eq("id", orderId)
       .maybeSingle();
 
-    if (existingOrder && existingOrder.payment_status === "paid") {
+    if (!isExplicitlyFailedParam && existingOrder && existingOrder.payment_status === "paid") {
       const alreadyRecordedPaymentId = existingOrder.payment_id;
       // Same transaction re-delivered -> idempotent success.
       // Different transaction id for same order -> duplicate, reject.
@@ -42,8 +65,10 @@ export async function POST(request: Request) {
         verified: true,
         duplicate: true,
         orderId,
+        amountCharged: Number(existingOrder.total) || 0,
+        amount: Number(existingOrder.total) || 0,
         paymentId: alreadyRecordedPaymentId,
-        paymentStatus: existingOrder.payment_status,
+        paymentStatus: "paid",
         orderStatus: existingOrder.status,
         paymentMethod: existingOrder.payment_method === "smartgateway" ? "HDFC SmartGateway" : "COD",
       });
@@ -99,51 +124,113 @@ export async function POST(request: Request) {
       }
     }
 
-    let isValid = false;
-    const isChargedGateway = gatewayStatus === "CHARGED" || gatewayStatus === "SUCCESS" || gatewayStatus === "21";
-    const isChargedParam = status === "CHARGED" || status === "SUCCESS" || status === "21";
+    const upperGatewayStatus = (gatewayStatus || "").toUpperCase();
 
-    if (isTestMode || isChargedGateway || isChargedParam) {
-      isValid = true;
-    } else if (signature) {
-      const verifyParams: Record<string, string> = {
-        orderId,
-        paymentId: paymentId || "",
-        status: status || "CHARGED",
-      };
-      isValid = verifySmartGatewaySignature(verifyParams, signature);
-    }
+    const isChargedGateway =
+      upperGatewayStatus === "CHARGED" || upperGatewayStatus === "SUCCESS" || upperGatewayStatus === "21";
+    const isChargedParam =
+      upperParamStatus === "CHARGED" || upperParamStatus === "SUCCESS" || upperParamStatus === "21";
 
-    if (!isValid) {
+    const isFailedGateway =
+      upperGatewayStatus === "FAILED" ||
+      upperGatewayStatus === "FAILURE" ||
+      upperGatewayStatus === "AUTHENTICATION_FAILED" ||
+      upperGatewayStatus === "AUTHORIZATION_FAILED" ||
+      upperGatewayStatus === "CANCELLED" ||
+      upperGatewayStatus === "CANCELED" ||
+      upperGatewayStatus === "DECLINED" ||
+      upperGatewayStatus === "REJECTED" ||
+      upperGatewayStatus === "USER_DROPPED" ||
+      upperGatewayStatus === "USER_ABORTED" ||
+      upperGatewayStatus === "AUTO_REFUNDED" ||
+      upperGatewayStatus === "CAPTURE_FAILED" ||
+      upperGatewayStatus === "TIMEOUT" ||
+      upperGatewayStatus === "ERROR" ||
+      upperGatewayStatus === "22" ||
+      upperGatewayStatus === "26" ||
+      upperGatewayStatus === "27" ||
+      upperGatewayStatus === "12" ||
+      upperGatewayStatus === "13";
+
+    // 4) Check if transaction failed, was cancelled, or is not confirmed charged
+    const isFailed =
+      isExplicitlyFailedParam ||
+      isFailedGateway ||
+      (!isChargedGateway && !isChargedParam);
+
+    if (isFailed) {
+      const failedGatewayStatus = gatewayStatus || status || "FAILED";
+      const txnPaymentId = paymentId || gatewayTxnId || (existingOrder?.payment_id ?? `HDFC_FAILED_${Date.now()}`);
+
+      // Record failed payment in Supabase so receipt & order history show not charged
+      await supabaseAdmin
+        .from("orders")
+        .update({
+          payment_status: "failed",
+          payment_id: txnPaymentId,
+          status: "pending",
+        })
+        .eq("id", orderId);
+
       return NextResponse.json(
-        { error: "Invalid payment signature verification failed." },
+        {
+          success: false,
+          verified: false,
+          orderId,
+          amountCharged: 0,
+          amount: existingOrder ? Number(existingOrder.total) : (amount ? Number(amount) : 0),
+          paymentId: txnPaymentId,
+          paymentStatus: "failed",
+          orderStatus: "pending",
+          gatewayStatus: failedGatewayStatus,
+          error: `Payment failed or was cancelled (${failedGatewayStatus}). No amount was charged.`,
+        },
         { status: 400 }
       );
     }
 
-    // In non-test mode, require the gateway inquiry to confirm CHARGED if returned.
-    if (!isTestMode && gatewayStatus && !isChargedGateway) {
+    // 5) Verify signature if in production mode for charged transactions
+    let isValid = false;
+    if (isTestMode) {
+      isValid = isChargedGateway || isChargedParam;
+    } else if (isChargedGateway || isChargedParam) {
+      if (signature) {
+        const verifyParams: Record<string, string> = {
+          orderId,
+          paymentId: paymentId || "",
+          status: status || "CHARGED",
+        };
+        isValid = verifySmartGatewaySignature(verifyParams, signature);
+      } else {
+        // Dual-inquiry confirmed CHARGED directly with HDFC server
+        isValid = isChargedGateway;
+      }
+    }
+
+    if (!isValid) {
       return NextResponse.json(
         {
-          error: `Payment not successful. Gateway status: ${gatewayStatus}`,
+          success: false,
+          verified: false,
+          error: "Invalid payment signature or unconfirmed transaction.",
           orderId,
-          gatewayStatus,
+          amountCharged: 0,
+          paymentStatus: "failed",
         },
         { status: 400 }
       );
     }
 
     const txnPaymentId = paymentId || gatewayTxnId || `HDFC_TXN_${Date.now()}`;
-    const paymentStatus = (isChargedGateway || isChargedParam || isTestMode) ? "paid" : "failed";
-    const orderStatus = paymentStatus === "paid" ? "preparing" : "pending";
+    const confirmedAmount = existingOrder ? Number(existingOrder.total) : (amount ? Number(amount) : 0);
 
-    // Update order in Supabase
+    // Update order in Supabase to paid
     const { error: dbError } = await supabaseAdmin
       .from("orders")
       .update({
-        payment_status: paymentStatus,
+        payment_status: "paid",
         payment_id: txnPaymentId,
-        status: orderStatus,
+        status: "preparing",
       })
       .eq("id", orderId);
 
@@ -155,10 +242,12 @@ export async function POST(request: Request) {
       success: true,
       verified: true,
       orderId,
+      amountCharged: confirmedAmount,
+      amount: confirmedAmount,
       paymentId: txnPaymentId,
-      paymentStatus,
-      orderStatus,
-      gatewayStatus,
+      paymentStatus: "paid",
+      orderStatus: "preparing",
+      gatewayStatus: gatewayStatus || "CHARGED",
       paymentMethod: paymentMethod || "HDFC SmartGateway (UPI/Card)",
     });
   } catch (err: unknown) {
